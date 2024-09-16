@@ -20,7 +20,7 @@ def RESOURCE_PREFIX = "mauron85_bgloc_"
 
 ext {
     getApplicationId = { ->
-        def applicationId = "com.wrdhrd.app"
+        def applicationId = "com.marianhello.app"
         if (findProject('..:app') != null) {
             applicationId = project('..:app').android.defaultConfig.applicationId
         }
