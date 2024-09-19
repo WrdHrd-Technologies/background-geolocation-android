@@ -37,7 +37,7 @@ import static java.lang.Math.round;
 public class DistanceFilterLocationProvider extends AbstractLocationProvider implements LocationListener {
 
     private static final String TAG = DistanceFilterLocationProvider.class.getSimpleName();
-    private static final String P_NAME = "com.tenforwardconsulting.cordova.bgloc";
+    private static final String P_NAME = "com.wrdhrd.bgloc";
 
     private static final String STATIONARY_REGION_ACTION        = P_NAME + ".STATIONARY_REGION_ACTION";
     private static final String STATIONARY_ALARM_ACTION         = P_NAME + ".STATIONARY_ALARM_ACTION";
@@ -85,19 +85,27 @@ public class DistanceFilterLocationProvider extends AbstractLocationProvider imp
         alarmManager = (AlarmManager) mContext.getSystemService(Context.ALARM_SERVICE);
 
         // Stop-detection PI
-        stationaryAlarmPI = PendingIntent.getBroadcast(mContext, 0, new Intent(STATIONARY_ALARM_ACTION), PendingIntent.FLAG_MUTABLE );
+        Intent stationaryAlarmActionIntent = new Intent(STATIONARY_ALARM_ACTION);
+        stationaryAlarmActionIntent.setPackage(mContext.getPackageName());
+        stationaryAlarmPI = PendingIntent.getBroadcast(mContext, 0, stationaryAlarmActionIntent, PendingIntent.FLAG_MUTABLE );
         registerReceiver(stationaryAlarmReceiver, new IntentFilter(STATIONARY_ALARM_ACTION));
 
         // Stationary region PI
-        stationaryRegionPI = PendingIntent.getBroadcast(mContext, 0, new Intent(STATIONARY_REGION_ACTION), PendingIntent.FLAG_CANCEL_CURRENT | PendingIntent.FLAG_MUTABLE);
+        Intent stationaryRegionActionIntent = new Intent(STATIONARY_REGION_ACTION);
+        stationaryRegionActionIntent.setPackage(mContext.getPackageName());
+        stationaryRegionPI = PendingIntent.getBroadcast(mContext, 0, stationaryRegionActionIntent, PendingIntent.FLAG_CANCEL_CURRENT | PendingIntent.FLAG_MUTABLE);
         registerReceiver(stationaryRegionReceiver, new IntentFilter(STATIONARY_REGION_ACTION));
 
         // Stationary location monitor PI
-        stationaryLocationPollingPI = PendingIntent.getBroadcast(mContext, 0, new Intent(STATIONARY_LOCATION_MONITOR_ACTION), PendingIntent.FLAG_MUTABLE);
+        Intent stationaryLocationMonitorActionIntent = new Intent(STATIONARY_LOCATION_MONITOR_ACTION);
+        stationaryLocationMonitorActionIntent.setPackage(mContext.getPackageName());
+        stationaryLocationPollingPI = PendingIntent.getBroadcast(mContext, 0, stationaryLocationMonitorActionIntent, PendingIntent.FLAG_MUTABLE);
         registerReceiver(stationaryLocationMonitorReceiver, new IntentFilter(STATIONARY_LOCATION_MONITOR_ACTION));
 
         // One-shot PI (TODO currently unused)
-        singleUpdatePI = PendingIntent.getBroadcast(mContext, 0, new Intent(SINGLE_LOCATION_UPDATE_ACTION), PendingIntent.FLAG_CANCEL_CURRENT | PendingIntent.FLAG_MUTABLE);
+        Intent singleLocationUpdateActionIntent = new Intent(SINGLE_LOCATION_UPDATE_ACTION);
+        singleLocationUpdateActionIntent.setPackage(mContext.getPackageName());
+        singleUpdatePI = PendingIntent.getBroadcast(mContext, 0, singleLocationUpdateActionIntent, PendingIntent.FLAG_CANCEL_CURRENT | PendingIntent.FLAG_MUTABLE);
         registerReceiver(singleUpdateReceiver, new IntentFilter(SINGLE_LOCATION_UPDATE_ACTION));
 
         // Location criteria
