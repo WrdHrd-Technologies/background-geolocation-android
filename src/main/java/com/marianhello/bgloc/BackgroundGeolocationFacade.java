@@ -51,7 +51,11 @@ public class BackgroundGeolocationFacade {
     public static final int SERVICE_STOPPED = 0;
     public static final int AUTHORIZATION_AUTHORIZED = 1;
     public static final int AUTHORIZATION_DENIED = 0;
-
+    
+    public static final String[] INITIALPERMISSIONS = new String[]{
+            Manifest.permission.ACCESS_COARSE_LOCATION,
+            Manifest.permission.ACCESS_FINE_LOCATION
+    };
     public static final String[] BACKGROUNDLOCATIONPERMISSION = new String[]{
             Manifest.permission.ACCESS_BACKGROUND_LOCATION
     };
