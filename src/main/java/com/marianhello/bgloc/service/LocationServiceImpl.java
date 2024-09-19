@@ -29,6 +29,7 @@ import android.os.IBinder;
 import android.os.Looper;
 import android.os.Message;
 import android.os.Process;
+import android.os.PowerManager;
 import androidx.annotation.Nullable;
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 
@@ -58,6 +59,7 @@ import com.marianhello.bgloc.sync.AccountHelper;
 import com.marianhello.bgloc.sync.SyncService;
 import com.marianhello.logging.LoggerManager;
 import com.marianhello.logging.UncaughtExceptionLogger;
+
 
 import org.chromium.content.browser.ThreadUtils;
 import org.json.JSONException;
@@ -127,6 +129,7 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
 
     private static LocationTransform sLocationTransform;
     private static LocationProviderFactory sLocationProviderFactory;
+    private PowerManager.WakeLock wakeLock;                 // PARTIAL_WAKELOCK
 
     private class ServiceHandler extends Handler {
         public ServiceHandler(Looper looper) {
@@ -143,8 +146,13 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
      * When binding to the service, we return an interface to our messenger
      * for sending messages to the service.
      */
+    @SuppressLint("WakelockTimeout")
     @Override
     public IBinder onBind(Intent intent) {
+        if (wakeLock != null && !wakeLock.isHeld()) {
+            wakeLock.acquire();
+            logger.debug("WAKELOCK acquired");
+        }
         logger.debug("Client binds to service");
         return mBinder;
     }
@@ -198,6 +206,10 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
 
         mLocationDAO = DAOFactory.createLocationDAO(this);
 
+        // PARTIAL_WAKELOCK
+        PowerManager powerManager = (PowerManager) getSystemService(POWER_SERVICE);
+        wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK,"com.marianhello.backgroundgeolocation:wakelock");
+
         mPostLocationTask = new PostLocationTask(mLocationDAO,
                 new PostLocationTask.PostLocationTaskListener() {
                     @Override
@@ -228,6 +240,12 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
     @Override
     public void onDestroy() {
         logger.info("Destroying LocationServiceImpl");
+
+        // PARTIAL_WAKELOCK
+        if (wakeLock != null && wakeLock.isHeld()) {
+            wakeLock.release();
+            logger.info("WAKELOCK released");
+        }
 
         // workaround for issue #276
         if (mProvider != null) {
