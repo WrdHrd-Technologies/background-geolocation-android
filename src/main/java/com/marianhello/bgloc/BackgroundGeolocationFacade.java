@@ -52,7 +52,13 @@ public class BackgroundGeolocationFacade {
     public static final int AUTHORIZATION_AUTHORIZED = 1;
     public static final int AUTHORIZATION_DENIED = 0;
 
-    public static final String[] PERMISSIONS = new String[]{
+    public static final String[] PERMISSIONS = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q ? new String[]{
+            Manifest.permission.ACCESS_COARSE_LOCATION,
+            Manifest.permission.ACCESS_FINE_LOCATION,
+            Manifest.permission.ACCESS_BACKGROUND_LOCATION
+    }
+    :
+    new String[]{
             Manifest.permission.ACCESS_COARSE_LOCATION,
             Manifest.permission.ACCESS_FINE_LOCATION
     };
@@ -73,6 +79,7 @@ public class BackgroundGeolocationFacade {
     public BackgroundGeolocationFacade(Context context, PluginDelegate delegate) {
         mContext = context;
         mDelegate = delegate;
+
         mService = new LocationServiceProxy(context);
 
         UncaughtExceptionLogger.register(context.getApplicationContext());

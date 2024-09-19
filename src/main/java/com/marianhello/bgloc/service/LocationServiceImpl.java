@@ -9,6 +9,8 @@ This is a new class
 
 package com.marianhello.bgloc.service;
 
+import android.content.pm.ServiceInfo;
+import android.annotation.SuppressLint;
 import android.accounts.Account;
 import android.app.Notification;
 import android.app.NotificationManager;
@@ -432,7 +434,13 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
                 mProvider.onCommand(LocationProvider.CMD_SWITCH_MODE,
                         LocationProvider.FOREGROUND_MODE);
             }
-            super.startForeground(NOTIFICATION_ID, notification);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                super.startForeground(NOTIFICATION_ID, notification,ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION);
+            }
+            else {
+                super.startForeground(NOTIFICATION_ID, notification);
+            }
+            
             mIsInForeground = true;
         }
     }
