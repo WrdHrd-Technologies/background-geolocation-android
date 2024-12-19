@@ -21,7 +21,7 @@ import static com.marianhello.bgloc.data.sqlite.SQLiteLocationContract.LocationE
 public class SQLiteOpenHelper extends android.database.sqlite.SQLiteOpenHelper {
     private static final String TAG = SQLiteOpenHelper.class.getName();
     public static final String SQLITE_DATABASE_NAME = "cordova_bg_geolocation.db";
-    public static final int DATABASE_VERSION = 15;
+    public static final int DATABASE_VERSION = 16;
 
     public static final String TEXT_TYPE = " TEXT";
     public static final String INTEGER_TYPE = " INTEGER";
