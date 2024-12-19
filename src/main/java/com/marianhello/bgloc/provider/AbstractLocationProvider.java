@@ -26,7 +26,7 @@ import com.marianhello.bgloc.data.BackgroundLocation;
 import com.marianhello.logging.LoggerManager;
 import com.marianhello.utils.ToneGenerator;
 import com.marianhello.utils.ToneGenerator.Tone;
-
+import com.marianhello.bgloc.data.BatteryInfo;
 /**
  * AbstractLocationProvider
  */
@@ -95,7 +95,8 @@ public abstract class AbstractLocationProvider implements LocationProvider {
     protected void handleLocation (Location location) {
         playDebugTone(Tone.BEEP);
         if (mDelegate != null) {
-            BackgroundLocation bgLocation = new BackgroundLocation(PROVIDER_ID, location);
+            BatteryInfo batteryInfo = new BatteryInfo(mContext);
+            BackgroundLocation bgLocation = new BackgroundLocation(PROVIDER_ID, location,batteryInfo);
             bgLocation.setMockLocationsEnabled(hasMockLocationsEnabled());
             mDelegate.onLocation(bgLocation);
         }
@@ -110,7 +111,8 @@ public abstract class AbstractLocationProvider implements LocationProvider {
     protected void handleStationary (Location location, float radius) {
         playDebugTone(Tone.LONG_BEEP);
         if (mDelegate != null) {
-            BackgroundLocation bgLocation = new BackgroundLocation(PROVIDER_ID, location);
+            BatteryInfo batteryInfo = new BatteryInfo(mContext);
+            BackgroundLocation bgLocation = new BackgroundLocation(PROVIDER_ID, location,batteryInfo);
             bgLocation.setRadius(radius);
             bgLocation.setMockLocationsEnabled(hasMockLocationsEnabled());
             mDelegate.onStationary(bgLocation);
@@ -125,7 +127,8 @@ public abstract class AbstractLocationProvider implements LocationProvider {
     protected void handleStationary (Location location) {
         playDebugTone(Tone.LONG_BEEP);
         if (mDelegate != null) {
-            BackgroundLocation bgLocation = new BackgroundLocation(PROVIDER_ID, location);
+            BatteryInfo batteryInfo = new BatteryInfo(mContext);
+            BackgroundLocation bgLocation = new BackgroundLocation(PROVIDER_ID, location,batteryInfo);
             bgLocation.setMockLocationsEnabled(hasMockLocationsEnabled());
             mDelegate.onStationary(bgLocation);
         }

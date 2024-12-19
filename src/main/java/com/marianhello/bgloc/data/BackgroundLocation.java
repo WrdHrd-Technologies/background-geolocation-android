@@ -9,6 +9,7 @@ import android.os.Parcel;
 import android.os.Parcelable;
 import androidx.core.util.TimeUtils;
 
+import com.marianhello.bgloc.data.BatteryInfo;
 import com.marianhello.bgloc.data.sqlite.SQLiteLocationContract;
 import com.marianhello.bgloc.data.sqlite.SQLiteLocationContract.LocationEntry;
 
@@ -22,6 +23,7 @@ public class BackgroundLocation implements Parcelable {
 
     private Long locationId = null;
     private Integer locationProvider = null;
+    private Integer batteryLevel = null;
     private Long batchStartMillis = null;
     private String provider;
     private double latitude = 0.0;
@@ -38,6 +40,7 @@ public class BackgroundLocation implements Parcelable {
     private boolean hasSpeed = false;
     private boolean hasBearing = false;
     private boolean hasRadius = false;
+    private boolean isCharging = false;
     private int mockFlags = 0x0000;
     private int status = POST_PENDING;
     private Bundle extras = null;
@@ -63,6 +66,14 @@ public class BackgroundLocation implements Parcelable {
     public BackgroundLocation(Integer locationProvider, Location location) {
         this(location);
         this.locationProvider = locationProvider;
+    }
+
+    @Deprecated
+    public BackgroundLocation(Integer locationProvider, Location location,BatteryInfo batteryInfo) {
+        this(location);
+        this.locationProvider = locationProvider;
+        this.setBatteryLevel(batteryInfo.getBatteryLevel());
+        this.setIsCharging(batteryInfo.getIsCharging());
     }
 
     /**
@@ -102,6 +113,8 @@ public class BackgroundLocation implements Parcelable {
         hasRadius = l.hasRadius;
         mockFlags = l.mockFlags;
         status = l.status;
+        batteryLevel = l.batteryLevel;
+        isCharging = l.isCharging;
         extras = (l.extras == null) ? null : new Bundle(l.extras);
     }
 
@@ -128,6 +141,8 @@ public class BackgroundLocation implements Parcelable {
         l.hasRadius = in.readInt() != 0;
         l.mockFlags = in.readInt();
         l.status = in.readInt();
+        l.batteryLevel = in.readInt();
+        l.isCharging = in.readInt() != 0;
         l.extras = in.readBundle();
 
         return l;
@@ -149,12 +164,14 @@ public class BackgroundLocation implements Parcelable {
         l.hasSpeed = location.hasSpeed();
         l.hasBearing = location.hasBearing();
         l.extras = location.getExtras();
+        
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1) {
             l.elapsedRealtimeNanos = location.getElapsedRealtimeNanos();
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR2) {
             l.setIsFromMockProvider(location.isFromMockProvider());
         }
+        
 
         return l;
     }
@@ -192,6 +209,8 @@ public class BackgroundLocation implements Parcelable {
         l.setStatus(c.getInt(c.getColumnIndex(LocationEntry.COLUMN_NAME_STATUS)));
         l.setLocationId(c.getLong(c.getColumnIndex(LocationEntry._ID)));
         l.setMockFlags(c.getInt((c.getColumnIndex(LocationEntry.COLUMN_NAME_MOCK_FLAGS))));
+        l.setBatteryLevel(c.getInt((c.getColumnIndex(LocationEntry.COLUMN_NAME_BATTERY_LEVEL))));
+        l.setIsCharging(c.getInt((c.getColumnIndex(LocationEntry.COLUMN_NAME_BATTERY_LEVEL))) == 1);
 
         return l;
     }
@@ -223,6 +242,8 @@ public class BackgroundLocation implements Parcelable {
         dest.writeInt(hasRadius ? 1 : 0);
         dest.writeInt(mockFlags);
         dest.writeInt(status);
+        dest.writeInt(batteryLevel);
+        dest.writeInt(isCharging ? 1: 0);
         dest.writeBundle(extras);
     }
 
@@ -688,6 +709,42 @@ public class BackgroundLocation implements Parcelable {
     }
 
     /**
+     * Returns Battery level
+     * @return batteryLevel or null
+     */
+    public Integer getBatteryLevel() {
+        return batteryLevel;
+    }
+
+
+    /**
+     * Sets batteryLevel
+     * used when location was persisted into db and returned db battery_level is used batteryLevel
+     * @param batteryLevel
+     */
+    public void setBatteryLevel(Integer batteryLevel) {
+        this.batteryLevel = batteryLevel;
+    }
+
+    /**
+     * Returns battery was charging or not
+     * @return isCharging
+     */
+    public boolean getIsCharging() {
+        return isCharging;
+    }
+
+
+    /**
+     * Sets isCharging
+     * used when location was persisted into db and returned db charging_flag is used isCharging
+     * @param isCharging
+     */
+    public void setIsCharging(boolean isCharging) {
+        this.isCharging = isCharging;
+    }
+
+    /**
      * Return android Location instance
      *
      * @return android.location.Location instance
@@ -709,89 +766,89 @@ public class BackgroundLocation implements Parcelable {
         return l;
     }
 
-    /** Determines whether one Location reading is better than the current Location fix
-     *
-     * Origin: https://developer.android.com/guide/topics/location/strategies.html
-     *
-     * @param location  The new Location that you want to evaluate
-     * @param currentBestLocation  The current Location fix, to which you want to compare the new one
-     */
-    public static boolean isBetterLocation(BackgroundLocation location, BackgroundLocation currentBestLocation) {
-        if (location == null) {
-            return false;
-        }
-        if (currentBestLocation == null) {
-            // A new location is always better than no location
-            return true;
-        }
+    // /** Determines whether one Location reading is better than the current Location fix
+    //  *
+    //  * Origin: https://developer.android.com/guide/topics/location/strategies.html
+    //  *
+    //  * @param location  The new Location that you want to evaluate
+    //  * @param currentBestLocation  The current Location fix, to which you want to compare the new one
+    //  */
+    // public static boolean isBetterLocation(BackgroundLocation location, BackgroundLocation currentBestLocation) {
+    //     if (location == null) {
+    //         return false;
+    //     }
+    //     if (currentBestLocation == null) {
+    //         // A new location is always better than no location
+    //         return true;
+    //     }
 
-        long timeDeltaInNanos = 0;
-        // Check whether the new location fix is newer or older
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1) {
-            // because getTime is not monotonic
-            timeDeltaInNanos = location.getElapsedRealtimeNanos() - currentBestLocation.getElapsedRealtimeNanos();
-        } else {
-            // unfortunately there is no other way for pre JELLY_BEAN_MR1 (API Level 17)
-            timeDeltaInNanos = (location.getTime() - currentBestLocation.getTime()) * 1000000;
-        }
+    //     long timeDeltaInNanos = 0;
+    //     // Check whether the new location fix is newer or older
+    //     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1) {
+    //         // because getTime is not monotonic
+    //         timeDeltaInNanos = location.getElapsedRealtimeNanos() - currentBestLocation.getElapsedRealtimeNanos();
+    //     } else {
+    //         // unfortunately there is no other way for pre JELLY_BEAN_MR1 (API Level 17)
+    //         timeDeltaInNanos = (location.getTime() - currentBestLocation.getTime()) * 1000000;
+    //     }
 
-        boolean isSignificantlyNewer = timeDeltaInNanos > TWO_MINUTES_IN_NANOS;
-        boolean isSignificantlyOlder = timeDeltaInNanos < -TWO_MINUTES_IN_NANOS;
-        boolean isNewer = timeDeltaInNanos > 0;
+    //     boolean isSignificantlyNewer = timeDeltaInNanos > TWO_MINUTES_IN_NANOS;
+    //     boolean isSignificantlyOlder = timeDeltaInNanos < -TWO_MINUTES_IN_NANOS;
+    //     boolean isNewer = timeDeltaInNanos > 0;
 
-        // If it's been more than two minutes since the current location, use the new location
-        // because the user has likely moved
-        if (isSignificantlyNewer) {
-            return true;
-            // If the new location is more than two minutes older, it must be worse
-        } else if (isSignificantlyOlder) {
-            return false;
-        }
+    //     // If it's been more than two minutes since the current location, use the new location
+    //     // because the user has likely moved
+    //     if (isSignificantlyNewer) {
+    //         return true;
+    //         // If the new location is more than two minutes older, it must be worse
+    //     } else if (isSignificantlyOlder) {
+    //         return false;
+    //     }
 
-        // Check whether the new location fix is more or less accurate
-        int accuracyDelta = (int) (location.getAccuracy() - currentBestLocation.getAccuracy());
-        boolean isLessAccurate = accuracyDelta > 0;
-        boolean isMoreAccurate = accuracyDelta < 0;
-        boolean isSignificantlyLessAccurate = accuracyDelta > 200;
+    //     // Check whether the new location fix is more or less accurate
+    //     int accuracyDelta = (int) (location.getAccuracy() - currentBestLocation.getAccuracy());
+    //     boolean isLessAccurate = accuracyDelta > 0;
+    //     boolean isMoreAccurate = accuracyDelta < 0;
+    //     boolean isSignificantlyLessAccurate = accuracyDelta > 200;
 
-        // Check if the old and new location are from the same provider
-        boolean isFromSameProvider = isSameProvider(location.getProvider(),
-                currentBestLocation.getProvider());
+    //     // Check if the old and new location are from the same provider
+    //     boolean isFromSameProvider = isSameProvider(location.getProvider(),
+    //             currentBestLocation.getProvider());
 
-        // Determine location quality using a combination of timeliness and accuracy
-        if (isMoreAccurate) {
-            return true;
-        } else if (isNewer && !isLessAccurate) {
-            return true;
-        } else if (isNewer && !isSignificantlyLessAccurate && isFromSameProvider) {
-            return true;
-        }
-        return false;
-    }
+    //     // Determine location quality using a combination of timeliness and accuracy
+    //     if (isMoreAccurate) {
+    //         return true;
+    //     } else if (isNewer && !isLessAccurate) {
+    //         return true;
+    //     } else if (isNewer && !isSignificantlyLessAccurate && isFromSameProvider) {
+    //         return true;
+    //     }
+    //     return false;
+    // }
 
-    /**
-     * Check if given location is better that instance
-     * @param location to compare is android Location
-     * @return true if location is better and false if not
-     */
-    public boolean isBetterLocationThan(Location location) {
-        if (location == null) {
-            return true;
-        }
-        return !isBetterLocation(new BackgroundLocation(location), this);
-    }
+    // /**
+    //  * Check if given location is better that instance
+    //  * @param location to compare is android Location
+    //  * @return true if location is better and false if not
+    //  */
+    // public boolean isBetterLocationThan(Location location) {
+    //     if (location == null) {
+    //         return true;
+    //     }
+    //     return !isBetterLocation(new BackgroundLocation(location), this);
+    // }
 
-    /**
-     * Check if given location is better that instance
-     * @param location to compare
-     * @return true if location is better and false if not
-     */
-    public boolean isBetterLocationThan(BackgroundLocation location) {
-        if (location == null) {
-            return true;
-        }
-        return !isBetterLocation(location, this);
-    }
+    // /**
+    //  * Check if given location is better that instance
+    //  * @param location to compare
+    //  * @return true if location is better and false if not
+    //  */
+    // public boolean isBetterLocationThan(BackgroundLocation location) {
+    //     if (location == null) {
+    //         return true;
+    //     }
+    //     return !isBetterLocation(location, this);
+    // }
 
     /** Checks whether two providers are the same */
     private static boolean isSameProvider(String provider1, String provider2) {
@@ -833,6 +890,8 @@ public class BackgroundLocation implements Parcelable {
             s.append(" {").append(extras).append('}');
         }
         s.append(" locprov=").append(locationProvider);
+        s.append(" btrLvl=").append(batteryLevel);
+        if(isCharging) s.append(" charging");
         s.append("]");
 
         return s.toString();
@@ -856,7 +915,9 @@ public class BackgroundLocation implements Parcelable {
         if (hasRadius) json.put("radius", radius);
         if (hasIsFromMockProvider()) json.put("isFromMockProvider", isFromMockProvider());
         if (hasMockLocationsEnabled()) json.put("mockLocationsEnabled", areMockLocationsEnabled());
-
+        
+        json.put("batteryLevel", batteryLevel);
+        json.put("isCharging", isCharging);
         return json;
   	}
 
@@ -897,6 +958,8 @@ public class BackgroundLocation implements Parcelable {
         values.put(LocationEntry.COLUMN_NAME_STATUS, status);
         values.put(LocationEntry.COLUMN_NAME_BATCH_START_MILLIS, batchStartMillis);
         values.put(LocationEntry.COLUMN_NAME_MOCK_FLAGS, mockFlags);
+        values.put(LocationEntry.COLUMN_NAME_BATTERY_LEVEL, batteryLevel);
+        values.put(LocationEntry.COLUMN_NAME_CHARGING_FLAG, batteryLevel);
         return values;
     }
 
@@ -939,6 +1002,12 @@ public class BackgroundLocation implements Parcelable {
         }
         if ("@mockLocationsEnabled".equals(key)) {
             return hasMockLocationsEnabled() ? areMockLocationsEnabled() : JSONObject.NULL;
+        }
+        if ("@batteryLevel".equals(key)) {
+            return batteryLevel;
+        }
+        if ("@isCharging".equals(key)) {
+            return isCharging;
         }
 
         return null;

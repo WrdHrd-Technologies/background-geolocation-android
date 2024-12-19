@@ -289,7 +289,9 @@ public class SQLiteLocationDAO implements LocationDAO {
             .append(LocationEntry.COLUMN_NAME_LOCATION_PROVIDER).append("= ?,")
             .append(LocationEntry.COLUMN_NAME_BATCH_START_MILLIS).append("= ?,")
             .append(LocationEntry.COLUMN_NAME_STATUS).append("= ?,")
-            .append(LocationEntry.COLUMN_NAME_MOCK_FLAGS).append("= ?")
+            .append(LocationEntry.COLUMN_NAME_MOCK_FLAGS).append("= ?,")
+            .append(LocationEntry.COLUMN_NAME_BATTERY_LEVEL).append("= ?,")
+            .append(LocationEntry.COLUMN_NAME_CHARGING_FLAG).append("= ?")
             .append(" WHERE ").append(LocationEntry._ID)
             .append("= ?")
             .toString();
@@ -312,6 +314,8 @@ public class SQLiteLocationDAO implements LocationDAO {
             location.getBatchStartMillis(),
             location.getStatus(),
             location.getMockFlags(),
+            location.getBatteryLevel(),
+            location.getIsCharging(),
             locationId
     });
 
@@ -430,6 +434,8 @@ public class SQLiteLocationDAO implements LocationDAO {
     l.setStatus(c.getInt(c.getColumnIndex(LocationEntry.COLUMN_NAME_STATUS)));
     l.setLocationId(c.getLong(c.getColumnIndex(LocationEntry._ID)));
     l.setMockFlags(c.getInt((c.getColumnIndex(LocationEntry.COLUMN_NAME_MOCK_FLAGS))));
+    l.setBatteryLevel(c.getInt((c.getColumnIndex(LocationEntry.COLUMN_NAME_BATTERY_LEVEL))));
+    l.setIsCharging(c.getInt((c.getColumnIndex(LocationEntry.COLUMN_NAME_CHARGING_FLAG))) == 1);
 
     return l;
   }
@@ -454,6 +460,8 @@ public class SQLiteLocationDAO implements LocationDAO {
     values.put(LocationEntry.COLUMN_NAME_STATUS, l.getStatus());
     values.put(LocationEntry.COLUMN_NAME_BATCH_START_MILLIS, l.getBatchStartMillis());
     values.put(LocationEntry.COLUMN_NAME_MOCK_FLAGS, l.getMockFlags());
+    values.put(LocationEntry.COLUMN_NAME_BATTERY_LEVEL, l.getBatteryLevel());
+    values.put(LocationEntry.COLUMN_NAME_CHARGING_FLAG, l.getIsCharging() ? 1 : 0);
 
     return values;
   }
@@ -478,7 +486,9 @@ public class SQLiteLocationDAO implements LocationDAO {
             LocationEntry.COLUMN_NAME_LOCATION_PROVIDER,
             LocationEntry.COLUMN_NAME_STATUS,
             LocationEntry.COLUMN_NAME_BATCH_START_MILLIS,
-            LocationEntry.COLUMN_NAME_MOCK_FLAGS
+            LocationEntry.COLUMN_NAME_MOCK_FLAGS,
+            LocationEntry.COLUMN_NAME_BATTERY_LEVEL,
+            LocationEntry.COLUMN_NAME_CHARGING_FLAG
     };
 
     return columns;
