@@ -959,7 +959,7 @@ public class BackgroundLocation implements Parcelable {
         values.put(LocationEntry.COLUMN_NAME_BATCH_START_MILLIS, batchStartMillis);
         values.put(LocationEntry.COLUMN_NAME_MOCK_FLAGS, mockFlags);
         values.put(LocationEntry.COLUMN_NAME_BATTERY_LEVEL, batteryLevel);
-        values.put(LocationEntry.COLUMN_NAME_CHARGING_FLAG, batteryLevel);
+        values.put(LocationEntry.COLUMN_NAME_CHARGING_FLAG, isCharging);
         return values;
     }
 
