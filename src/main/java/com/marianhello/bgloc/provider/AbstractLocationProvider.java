@@ -17,7 +17,7 @@ import android.location.Location;
 import android.media.AudioManager;
 import android.provider.Settings;
 import android.widget.Toast;
-
+import android.os.Build;
 import com.google.android.gms.location.DetectedActivity;
 import com.marianhello.bgloc.Config;
 import com.marianhello.bgloc.PluginException;
@@ -27,6 +27,7 @@ import com.marianhello.logging.LoggerManager;
 import com.marianhello.utils.ToneGenerator;
 import com.marianhello.utils.ToneGenerator.Tone;
 import com.marianhello.bgloc.data.BatteryInfo;
+import java.lang.reflect.Field;
 /**
  * AbstractLocationProvider
  */
@@ -77,6 +78,16 @@ public abstract class AbstractLocationProvider implements LocationProvider {
      * @param receiver
      */
     protected Intent registerReceiver (BroadcastReceiver receiver, IntentFilter filter) {
+        if (Build.VERSION.SDK_INT >= 34) {
+            try {
+                Field receiverExportedField = Context.class.getField("RECEIVER_NOT_EXPORTED");
+                int receiverExported = receiverExportedField.getInt(null);
+                return mContext.registerReceiver(receiver, filter, receiverExported);
+            } catch (NoSuchFieldException | IllegalAccessException e) {
+                throw new RuntimeException(e);
+            }
+
+        }
         return mContext.registerReceiver(receiver, filter);
     }
 
