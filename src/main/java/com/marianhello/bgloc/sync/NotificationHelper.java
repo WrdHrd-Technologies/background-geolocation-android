@@ -82,6 +82,10 @@ public class NotificationHelper {
                 builder.setCategory(Notification.CATEGORY_NAVIGATION);
             }
 
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                builder.setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE);
+            }
+
             builder.setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE);
 
             Notification notification = builder.build();

@@ -441,12 +441,27 @@ public class DistanceFilterLocationProvider extends AbstractLocationProvider imp
         // TODO http://www.cse.buffalo.edu/~demirbas/publications/proximity.pdf
         // determine if we're almost out of stationary-distance and increase monitoring-rate.
         logger.info("Distance from stationary location: {}", distance);
+        logger.info("Distance interval: {}", stationaryInterval);
         if (distance > stationaryRadius) {
             onExitStationaryRegion(location);
         } else {
             long timeDiff = 0;
-            if (lastLocation != null && stationaryInterval > 0) {
-                timeDiff = location.getTime() - lastLocation.getTime();
+            
+            if(lastLocation != null){
+                logger.debug("Last Location Time: {}", lastLocation.getTime());
+            }
+            else{
+                logger.debug("Last Location is null ");
+            }
+
+            if ( stationaryInterval > 0) {
+                if(lastLocation != null){
+                    timeDiff = location.getTime() - lastLocation.getTime();
+                }
+                else if(stationaryLocation != null){
+                    timeDiff = location.getTime() - stationaryLocation.getTime();
+                }
+                
                 logger.debug("Stationary change Time Change: {}", timeDiff);
                 if(stationaryInterval < timeDiff){
                     lastLocation = location;
