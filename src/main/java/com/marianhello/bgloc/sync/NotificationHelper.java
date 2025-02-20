@@ -78,6 +78,12 @@ public class NotificationHelper {
                 builder.setContentIntent(contentIntent);
             }
 
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                builder.setCategory(Notification.CATEGORY_NAVIGATION);
+            }
+
+            builder.setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE);
+
             Notification notification = builder.build();
             notification.flags |= Notification.FLAG_ONGOING_EVENT | Notification.FLAG_FOREGROUND_SERVICE | Notification.FLAG_NO_CLEAR;
 

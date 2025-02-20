@@ -36,6 +36,7 @@ public class ConfigTest {
         Assert.assertEquals(config.getInterval(), configFromParcel.getInterval());
         Assert.assertEquals(config.getFastestInterval(), configFromParcel.getFastestInterval());
         Assert.assertEquals(config.getActivitiesInterval(), configFromParcel.getActivitiesInterval());
+        Assert.assertEquals(config.getStationaryInterval(), configFromParcel.getStationaryInterval());
         Assert.assertEquals(config.getNotificationIconColor(), configFromParcel.getNotificationIconColor());
         Assert.assertEquals(config.getLargeNotificationIcon(), configFromParcel.getLargeNotificationIcon());
         Assert.assertEquals(config.getSmallNotificationIcon(), configFromParcel.getSmallNotificationIcon());

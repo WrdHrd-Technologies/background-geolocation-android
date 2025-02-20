@@ -110,6 +110,7 @@ public class SQLiteOpenHelperTest {
         configValues.put(SQLiteConfigurationContract.ConfigurationEntry.COLUMN_NAME_INTERVAL, config.getInterval());
         configValues.put(SQLiteConfigurationContract.ConfigurationEntry.COLUMN_NAME_FASTEST_INTERVAL, config.getFastestInterval());
         configValues.put(SQLiteConfigurationContract.ConfigurationEntry.COLUMN_NAME_ACTIVITIES_INTERVAL, config.getActivitiesInterval());
+        configValues.put(SQLiteConfigurationContract.ConfigurationEntry.COLUMN_NAME_STATIONARY_INTERVAL, config.getStationaryInterval());
         configValues.put(SQLiteConfigurationContract.ConfigurationEntry.COLUMN_NAME_URL, config.getUrl());
         configValues.put(SQLiteConfigurationContract.ConfigurationEntry.COLUMN_NAME_HEADERS, new JSONObject(config.getHttpHeaders()).toString());
 
@@ -187,6 +188,7 @@ public class SQLiteOpenHelperTest {
         Assert.assertTrue(columnNames.contains((SQLiteConfigurationContract.ConfigurationEntry.COLUMN_NAME_INTERVAL)));
         Assert.assertTrue(columnNames.contains((SQLiteConfigurationContract.ConfigurationEntry.COLUMN_NAME_FASTEST_INTERVAL)));
         Assert.assertTrue(columnNames.contains((SQLiteConfigurationContract.ConfigurationEntry.COLUMN_NAME_ACTIVITIES_INTERVAL)));
+        Assert.assertTrue(columnNames.contains((SQLiteConfigurationContract.ConfigurationEntry.COLUMN_NAME_STATIONARY_INTERVAL)));
         Assert.assertTrue(columnNames.contains((SQLiteConfigurationContract.ConfigurationEntry.COLUMN_NAME_URL)));
         Assert.assertTrue(columnNames.contains((SQLiteConfigurationContract.ConfigurationEntry.COLUMN_NAME_SYNC_URL)));
         Assert.assertTrue(columnNames.contains((SQLiteConfigurationContract.ConfigurationEntry.COLUMN_NAME_SYNC_THRESHOLD)));

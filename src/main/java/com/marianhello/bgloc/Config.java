@@ -52,6 +52,7 @@ public class Config implements Parcelable
     private Integer interval; //milliseconds
     private Integer fastestInterval; //milliseconds
     private Integer activitiesInterval; //milliseconds
+    private Integer stationaryInterval; //milliseconds
     private Boolean stopOnTerminate;
     private Boolean startOnBoot;
     private Boolean startForeground;
@@ -82,6 +83,7 @@ public class Config implements Parcelable
         this.interval = config.interval;
         this.fastestInterval = config.fastestInterval;
         this.activitiesInterval = config.activitiesInterval;
+        this.stationaryInterval = config.stationaryInterval;
         this.stopOnTerminate = config.stopOnTerminate;
         this.startOnBoot = config.startOnBoot;
         this.startForeground = config.startForeground;
@@ -115,6 +117,7 @@ public class Config implements Parcelable
         setInterval(in.readInt());
         setFastestInterval(in.readInt());
         setActivitiesInterval(in.readInt());
+        setStationaryInterval(in.readInt());
         setStopOnStillActivity((Boolean) in.readValue(null));
         setUrl(in.readString());
         setSyncUrl(in.readString());
@@ -137,9 +140,10 @@ public class Config implements Parcelable
         config.notificationIconSmall = "";
         config.notificationIconColor = "";
         config.locationProvider = DISTANCE_FILTER_PROVIDER;
-        config.interval = 600000; //milliseconds
-        config.fastestInterval = 120000; //milliseconds
+        config.interval = 600000;          //milliseconds
+        config.fastestInterval = 120000;   //milliseconds
         config.activitiesInterval = 10000; //milliseconds
+        config.stationaryInterval = 0;     //milliseconds
         config.stopOnTerminate = true;
         config.startOnBoot = false;
         config.startForeground = true;
@@ -178,6 +182,7 @@ public class Config implements Parcelable
         out.writeInt(getInterval());
         out.writeInt(getFastestInterval());
         out.writeInt(getActivitiesInterval());
+        out.writeInt(getStationaryInterval());
         out.writeValue(getStopOnStillActivity());
         out.writeString(getUrl());
         out.writeString(getSyncUrl());
@@ -409,6 +414,18 @@ public class Config implements Parcelable
         this.activitiesInterval = activitiesInterval;
     }
 
+    public boolean hasStationaryInterval() {
+        return stationaryInterval != null;
+    }
+
+    public Integer getStationaryInterval() {
+        return stationaryInterval;
+    }
+
+    public void setStationaryInterval(Integer stationaryInterval) {
+        this.stationaryInterval = stationaryInterval;
+    }
+
     public boolean hasStopOnStillActivity() {
         return stopOnStillActivity != null;
     }
@@ -529,6 +546,7 @@ public class Config implements Parcelable
                 .append(" interval=").append(getInterval())
                 .append(" fastestInterval=").append(getFastestInterval())
                 .append(" activitiesInterval=").append(getActivitiesInterval())
+                .append(" stationaryInterval=").append(getStationaryInterval())
                 .append(" isDebugging=").append(isDebugging())
                 .append(" stopOnTerminate=" ).append(getStopOnTerminate())
                 .append(" stopOnStillActivity=").append(getStopOnStillActivity())
@@ -602,6 +620,9 @@ public class Config implements Parcelable
         }
         if (config2.hasActivitiesInterval()) {
             merger.setActivitiesInterval(config2.getActivitiesInterval());
+        }
+        if (config2.hasStationaryInterval()) {
+            merger.setStationaryInterval(config2.getStationaryInterval());
         }
         if (config2.hasNotificationIconColor()) {
             merger.setNotificationIconColor(config2.getNotificationIconColor());

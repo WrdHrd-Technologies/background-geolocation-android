@@ -37,7 +37,7 @@ import static java.lang.Math.round;
 public class DistanceFilterLocationProvider extends AbstractLocationProvider implements LocationListener {
 
     private static final String TAG = DistanceFilterLocationProvider.class.getSimpleName();
-    private static final String P_NAME = "com.wrdhrd.bgloc";
+    private static final String P_NAME = "com.tenforwardconsulting.cordova.bgloc";
 
     private static final String STATIONARY_REGION_ACTION        = P_NAME + ".STATIONARY_REGION_ACTION";
     private static final String STATIONARY_ALARM_ACTION         = P_NAME + ".STATIONARY_ALARM_ACTION";
@@ -424,6 +424,8 @@ public class DistanceFilterLocationProvider extends AbstractLocationProvider imp
 
     public void onPollStationaryLocation(Location location) {
         float stationaryRadius = mConfig.getStationaryRadius();
+        long stationaryInterval = mConfig.getStationaryInterval();
+
         if (isMoving) {
             return;
         }
@@ -441,11 +443,23 @@ public class DistanceFilterLocationProvider extends AbstractLocationProvider imp
         logger.info("Distance from stationary location: {}", distance);
         if (distance > stationaryRadius) {
             onExitStationaryRegion(location);
-        } else if (distance > 0) {
-            startPollingStationaryLocation(STATIONARY_LOCATION_POLLING_INTERVAL_AGGRESSIVE);
-        } else if (stationaryLocationPollingInterval != STATIONARY_LOCATION_POLLING_INTERVAL_LAZY) {
-            startPollingStationaryLocation(STATIONARY_LOCATION_POLLING_INTERVAL_LAZY);
-        }
+        } else {
+            long timeDiff = 0;
+            if (lastLocation != null && stationaryInterval > 0) {
+                timeDiff = location.getTime() - lastLocation.getTime();
+                logger.debug("Stationary change Time Change: {}", timeDiff);
+                if(stationaryInterval < timeDiff){
+                    lastLocation = location;
+                    handleLocation(location);
+                }
+            }
+            
+            if (distance > 0) {
+                startPollingStationaryLocation(STATIONARY_LOCATION_POLLING_INTERVAL_AGGRESSIVE);
+            } else if (stationaryLocationPollingInterval != STATIONARY_LOCATION_POLLING_INTERVAL_LAZY) {
+                startPollingStationaryLocation(STATIONARY_LOCATION_POLLING_INTERVAL_LAZY);
+            }
+        } 
     }
 
     /**

@@ -57,15 +57,13 @@ public class BackgroundGeolocationFacade {
             Manifest.permission.ACCESS_FINE_LOCATION
     };
     public static final String[] BACKGROUNDLOCATIONPERMISSION = new String[]{
-            Manifest.permission.ACCESS_BACKGROUND_LOCATION,
-            Manifest.permission.ACTIVITY_RECOGNITION
+            Manifest.permission.ACCESS_BACKGROUND_LOCATION
     };
 
     public static final String[] PERMISSIONS = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q ? new String[]{
             Manifest.permission.ACCESS_COARSE_LOCATION,
             Manifest.permission.ACCESS_FINE_LOCATION,
-            Manifest.permission.ACCESS_BACKGROUND_LOCATION,
-            Manifest.permission.ACTIVITY_RECOGNITION
+            Manifest.permission.ACCESS_BACKGROUND_LOCATION
     }
     :
     new String[]{
