@@ -20,6 +20,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.marianhello.backgroundgeolocation" android:versionName="1.0" android:versionCode="1">
     <application>
+        <service android:name=".floatingview.FloatingViewService" android:foregroundServiceType="location" android:exported="false" />
         <service
             android:name="com.marianhello.bgloc.sync.SyncService"
             android:exported="true"
