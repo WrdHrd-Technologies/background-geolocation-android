@@ -56,6 +56,7 @@ public class DistanceFilterLocationProvider extends AbstractLocationProvider imp
     private Integer locationAcquisitionAttempts = 0;
 
     private Location lastLocation;
+    private long lastLocationTime = 0;
     private Location stationaryLocation;
     private float stationaryRadius;
     private PendingIntent stationaryAlarmPI;
@@ -345,6 +346,7 @@ public class DistanceFilterLocationProvider extends AbstractLocationProvider imp
         }
         // Go ahead and cache, push to server
         lastLocation = location;
+        lastLocationTime = System.currentTimeMillis();
         handleLocation(location);
     }
 
@@ -455,17 +457,20 @@ public class DistanceFilterLocationProvider extends AbstractLocationProvider imp
             }
 
             if ( stationaryInterval > 0) {
-                if(lastLocation != null){
-                    timeDiff = location.getTime() - lastLocation.getTime();
+                if(lastLocationTime == 0 && stationaryLocation != null){
+                   lastLocationTime = stationaryLocation.getTime();
                 }
-                else if(stationaryLocation != null){
-                    timeDiff = location.getTime() - stationaryLocation.getTime();
+                 
+                if(lastLocationTime != 0){
+                    timeDiff = System.currentTimeMillis() - lastLocationTime;
                 }
                 
                 logger.debug("Stationary change Time Change: {}", timeDiff);
                 if(stationaryInterval < timeDiff){
                     lastLocation = location;
+                    lastLocationTime = System.currentTimeMillis();
                     handleLocation(location);
+                    return;
                 }
             }
             
