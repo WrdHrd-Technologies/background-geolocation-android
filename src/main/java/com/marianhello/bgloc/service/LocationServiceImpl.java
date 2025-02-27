@@ -33,6 +33,7 @@ import android.os.Message;
 import android.os.Process;
 import android.os.PowerManager;
 import androidx.annotation.Nullable;
+import androidx.core.app.NotificationCompat;
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 
 import com.marianhello.bgloc.Config;
@@ -109,6 +110,7 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
 
     /** notification id */
     private static int NOTIFICATION_ID = 1;
+    private static int PERMISSION_NOTIFICATION_ID = 2;
 
     private ResourceResolver mResolver;
     private Config mConfig;
@@ -434,14 +436,18 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
                 mProvider.onCommand(LocationProvider.CMD_SWITCH_MODE,
                         LocationProvider.FOREGROUND_MODE);
             }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                super.startForeground(NOTIFICATION_ID, notification,ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION);
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    super.startForeground(NOTIFICATION_ID, notification,ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION);
+                }
+                else {
+                    super.startForeground(NOTIFICATION_ID, notification);
+                }
+                mIsInForeground = true;
+            } catch(Exception error) {
+                logger.error("Forground Error: {}", error.getMessage());
             }
-            else {
-                super.startForeground(NOTIFICATION_ID, notification);
-            }
-            
-            mIsInForeground = true;
+
         }
     }
 
@@ -492,6 +498,7 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
 
                             NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
                             notificationManager.notify(NOTIFICATION_ID, notification);
+                            notificationManager.cancel(PERMISSION_NOTIFICATION_ID);
                         }
                     }
                 }
@@ -634,12 +641,28 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
         });
     }
 
+    private void postError(PluginException error) {
+        mPostLocationTask.add(error);
+    }
+
     @Override
     public void onError(PluginException error) {
+        Config config = getConfig();
         Bundle bundle = new Bundle();
         bundle.putInt("action", MSG_ON_ERROR);
         bundle.putBundle("payload", error.toBundle());
         broadcastMessage(bundle);
+
+        if(error.getCode() == PluginException.PERMISSION_DENIED_ERROR) {
+            postError(error);
+            NotificationCompat.Builder builder = new NotificationCompat.Builder(LocationServiceImpl.this, NotificationHelper.ANDROID_PERMISSIONS_CHANNEL_ID);
+            builder.setContentTitle("Permission Denied");
+            builder.setContentText("Location Permission is denied. Please Allow the location.");
+            builder.setSmallIcon(android.R.drawable.ic_dialog_info);
+            NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+            notificationManager.notify(PERMISSION_NOTIFICATION_ID, builder.build());
+        }
+
     }
 
     private void broadcastMessage(int msgId) {

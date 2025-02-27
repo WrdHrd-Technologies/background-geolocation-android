@@ -5,6 +5,8 @@ import android.os.Bundle;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.util.Formatter;
+
 public class PluginException extends Exception {
     public static final int PERMISSION_DENIED_ERROR = 1000;
     public static final int SETTINGS_ERROR = 1001;
@@ -35,4 +37,16 @@ public class PluginException extends Exception {
 
         return bundle;
     }
+
+    public String toJsonString() {
+        StringBuilder string = new StringBuilder();
+        Formatter formatter = new Formatter(string);
+        formatter.format("{%n");
+        formatter.format("\"code\": \"%d\",", this.code);
+        formatter.format("\"message\": \"%s\"", this.getMessage());
+        formatter.format("}");
+        formatter.flush();
+        return string.toString();
+    }
+
 }

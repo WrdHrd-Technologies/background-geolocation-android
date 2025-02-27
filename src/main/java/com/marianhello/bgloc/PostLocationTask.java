@@ -6,6 +6,7 @@ import com.marianhello.logging.LoggerManager;
 
 import org.json.JSONArray;
 import org.json.JSONException;
+import org.json.JSONObject;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -182,5 +183,57 @@ public class PostLocationTask {
         }
 
         return true;
+    }
+
+    private void postError(PluginException error) {
+        logger.debug("Executing Error#error");
+        try {
+            JSONObject jsonError = new JSONObject(error.toJsonString());
+            String url = mConfig.getUrl() + "/error";
+            logger.debug("Posting json to url: {} headers: {}", url, error.toJsonString());
+            int responseCode;
+
+            try {
+                responseCode = HttpPostService.postJSON(url, jsonError, mConfig.getHttpHeaders());
+            } catch (Exception e) {
+                mHasConnectivity = mConnectivityListener.hasConnectivity();
+                logger.warn("Error while posting Errors: {}", e.toString());
+                return;
+            }
+
+            if (responseCode == 285) {
+                // Okay, but we don't need to continue sending these
+
+                logger.debug("Error was sent to the server, and received an \"HTTP 285 Updates Not Required\"");
+            }
+
+            // All 2xx statuses are okay
+            boolean isStatusOkay = responseCode >= 200 && responseCode < 300;
+
+            if (!isStatusOkay) {
+                logger.warn("Server error while posting Errors responseCode: {}", responseCode);
+            }
+        }
+        catch(JSONException j) {
+            logger.error("Error JSON conversion: {}", j.getMessage());
+        }
+    }
+
+    public void add(final PluginException error) {
+        if (mConfig == null) {
+            logger.warn("PostErrorTask has no config. Did you called setConfig? Skipping Error.");
+            return;
+        }
+
+        try {
+            mExecutor.execute(new Runnable() {
+                @Override
+                public void run() {
+                    postError(error);
+                }
+            });
+        } catch (RejectedExecutionException ex) {
+            logger.error("Error when Posting Error: {}", ex.getMessage());
+        }
     }
 }
