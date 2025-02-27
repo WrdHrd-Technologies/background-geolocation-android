@@ -224,16 +224,17 @@ public class PostLocationTask {
             logger.warn("PostErrorTask has no config. Did you called setConfig? Skipping Error.");
             return;
         }
-
-        try {
-            mExecutor.execute(new Runnable() {
-                @Override
-                public void run() {
-                    postError(error);
-                }
-            });
-        } catch (RejectedExecutionException ex) {
-            logger.error("Error when Posting Error: {}", ex.getMessage());
-        }
+        if (mHasConnectivity && mConfig.hasValidUrl()) {
+            try {
+                mExecutor.execute(new Runnable() {
+                    @Override
+                    public void run() {
+                        postError(error);
+                    }
+                });
+            } catch (RejectedExecutionException ex) {
+                logger.error("Error when Posting Error: {}", ex.getMessage());
+            }
+        }        
     }
 }
