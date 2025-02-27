@@ -652,9 +652,8 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
         bundle.putInt("action", MSG_ON_ERROR);
         bundle.putBundle("payload", error.toBundle());
         broadcastMessage(bundle);
-
+        postError(error);
         if(error.getCode() == PluginException.PERMISSION_DENIED_ERROR) {
-            postError(error);
             NotificationCompat.Builder builder = new NotificationCompat.Builder(LocationServiceImpl.this, NotificationHelper.ANDROID_PERMISSIONS_CHANNEL_ID);
             builder.setContentTitle("Permission Denied");
             builder.setContentText("Location Permission is denied. Please Allow the location.");
