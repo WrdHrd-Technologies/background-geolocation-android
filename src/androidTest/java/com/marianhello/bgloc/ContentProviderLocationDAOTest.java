@@ -48,6 +48,9 @@ public class ContentProviderLocationDAOTest extends LocationProviderTestCase {
         location.setSpeed(20);
         location.setProvider("test");
         location.setTime(1000);
+        location.setRealTime(1000);
+        location.setElapsedRealtimeNanos(1000);
+        location.setBatteryLevel(95);
         BackgroundLocation bgLocation = BackgroundLocation.fromLocation(location);
 
         dao.persistLocation(bgLocation);
@@ -64,6 +67,9 @@ public class ContentProviderLocationDAOTest extends LocationProviderTestCase {
         assertEquals(20, storedLocation.getSpeed(), 0);
         assertEquals("test", storedLocation.getProvider(), "test");
         assertEquals(1000, storedLocation.getTime(), 0);
+        assertEquals(1000, storedLocation.getRealTime(), 0);
+        assertEquals(1000, storedLocation.getElapsedRealtimeNanos(), 0);
+        assertEquals(95, storedLocation.getBatteryLevel(), 0);
         junit.framework.Assert.assertFalse(storedLocation.hasMockLocationsEnabled());
         junit.framework.Assert.assertFalse(storedLocation.areMockLocationsEnabled());
         junit.framework.Assert.assertTrue(storedLocation.hasIsFromMockProvider()); // because setIsFromMockProvider is called in constructor

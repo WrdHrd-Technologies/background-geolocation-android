@@ -16,6 +16,8 @@ import com.marianhello.bgloc.data.sqlite.SQLiteLocationContract.LocationEntry;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import ir.programmerplus.realtime.RealTime;
+
 public class BackgroundLocation implements Parcelable {
     public static final int DELETED = 0;
     public static final int POST_PENDING = 1;
@@ -29,6 +31,7 @@ public class BackgroundLocation implements Parcelable {
     private double latitude = 0.0;
     private double longitude = 0.0;
     private long time = 0;
+    private long realtime = 0;
     private long elapsedRealtimeNanos = 0;
     private float accuracy = 0.0f;
     private float speed = 0.0f;
@@ -100,6 +103,7 @@ public class BackgroundLocation implements Parcelable {
         latitude = l.latitude;
         longitude = l.longitude;
         time = l.time;
+        realtime = l.time;
         elapsedRealtimeNanos = l.elapsedRealtimeNanos;
         accuracy = l.accuracy;
         speed = l.speed;
@@ -116,6 +120,15 @@ public class BackgroundLocation implements Parcelable {
         batteryLevel = l.batteryLevel;
         isCharging = l.isCharging;
         extras = (l.extras == null) ? null : new Bundle(l.extras);
+
+        try{
+            if(RealTime.isInitialized()){
+                realtime = RealTime.now().getTime();
+            }
+        }
+        catch(Exception ignore){
+
+        }
     }
 
     private static BackgroundLocation fromParcel(Parcel in) {
@@ -143,6 +156,7 @@ public class BackgroundLocation implements Parcelable {
         l.status = in.readInt();
         l.batteryLevel = in.readInt();
         l.isCharging = in.readInt() != 0;
+        l.realtime = in.readLong();
         l.extras = in.readBundle();
 
         return l;
@@ -155,6 +169,7 @@ public class BackgroundLocation implements Parcelable {
         l.latitude = location.getLatitude();
         l.longitude = location.getLongitude();
         l.time = location.getTime();
+        l.realtime = location.getTime();
         l.accuracy = location.getAccuracy();
         l.speed = location.getSpeed();
         l.bearing = location.getBearing();
@@ -164,14 +179,23 @@ public class BackgroundLocation implements Parcelable {
         l.hasSpeed = location.hasSpeed();
         l.hasBearing = location.hasBearing();
         l.extras = location.getExtras();
-        
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1) {
             l.elapsedRealtimeNanos = location.getElapsedRealtimeNanos();
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR2) {
             l.setIsFromMockProvider(location.isFromMockProvider());
         }
-        
+
+        try{
+            if(RealTime.isInitialized()){
+                l.realtime = RealTime.now().getTime();
+            }
+        }
+        catch(Exception ignore){
+
+        }
+
 
         return l;
     }
@@ -187,6 +211,8 @@ public class BackgroundLocation implements Parcelable {
 
         l.setProvider(c.getString(c.getColumnIndex(LocationEntry.COLUMN_NAME_PROVIDER)));
         l.setTime(c.getLong(c.getColumnIndex(LocationEntry.COLUMN_NAME_TIME)));
+        l.setRealTime(c.getLong(c.getColumnIndex(LocationEntry.COLUMN_NAME_REALTIME)));
+        l.setElapsedRealtimeNanos(c.getLong(c.getColumnIndex(LocationEntry.COLUMN_NAME_ELAPSEDREALTIMENANO)));
         if (c.getInt(c.getColumnIndex(LocationEntry.COLUMN_NAME_HAS_ACCURACY)) == 1) {
             l.setAccuracy(c.getFloat(c.getColumnIndex(LocationEntry.COLUMN_NAME_ACCURACY)));
         }
@@ -244,6 +270,7 @@ public class BackgroundLocation implements Parcelable {
         dest.writeInt(status);
         dest.writeInt(batteryLevel);
         dest.writeInt(isCharging ? 1: 0);
+        dest.writeLong(realtime);
         dest.writeBundle(extras);
     }
 
@@ -392,6 +419,26 @@ public class BackgroundLocation implements Parcelable {
      */
     public void setTime(long time) {
         this.time = time;
+    }
+
+
+    /**
+     * Return the UTC time of this fix, in milliseconds since January 1, 1970.
+     *
+     * @return realtime of fix, in milliseconds since January 1, 1970.
+     */
+    public long getRealTime() {
+        return realtime;
+    }
+
+    /**
+     * Set the UTC time of this fix, in milliseconds since January 1,
+     * 1970.
+     *
+     * @param realtime UTC time of this fix, in milliseconds since January 1, 1970
+     */
+    public void setRealTime(long realtime) {
+        this.realtime = realtime;
     }
 
     /**
@@ -874,6 +921,13 @@ public class BackgroundLocation implements Parcelable {
         } else {
             s.append(" t=").append(time);
         }
+
+        if (realtime == 0) {
+            s.append(" rt=?!?");
+        } else {
+            s.append(" rt=").append(realtime);
+        }
+
         if (elapsedRealtimeNanos == 0) {
             s.append(" et=?!?");
         } else {
@@ -915,11 +969,12 @@ public class BackgroundLocation implements Parcelable {
         if (hasRadius) json.put("radius", radius);
         if (hasIsFromMockProvider()) json.put("isFromMockProvider", isFromMockProvider());
         if (hasMockLocationsEnabled()) json.put("mockLocationsEnabled", areMockLocationsEnabled());
-        
+
         json.put("batteryLevel", batteryLevel);
         json.put("isCharging", isCharging);
+        json.put("realtime", realtime);
         return json;
-  	}
+    }
 
     /**
      * Returns location as JSON object containing location id
@@ -960,6 +1015,8 @@ public class BackgroundLocation implements Parcelable {
         values.put(LocationEntry.COLUMN_NAME_MOCK_FLAGS, mockFlags);
         values.put(LocationEntry.COLUMN_NAME_BATTERY_LEVEL, batteryLevel);
         values.put(LocationEntry.COLUMN_NAME_CHARGING_FLAG, isCharging);
+        values.put(LocationEntry.COLUMN_NAME_REALTIME, realtime);
+        values.put(LocationEntry.COLUMN_NAME_ELAPSEDREALTIMENANO, elapsedRealtimeNanos);
         return values;
     }
 
@@ -975,6 +1032,12 @@ public class BackgroundLocation implements Parcelable {
         }
         if ("@time".equals(key)) {
             return time;
+        }
+        if ("@realtime".equals(key)) {
+            return realtime;
+        }
+        if ("@elapsedrealtimenano".equals(key)) {
+            return elapsedRealtimeNanos;
         }
         if ("@latitude".equals(key)) {
             return latitude;

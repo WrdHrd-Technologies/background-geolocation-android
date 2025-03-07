@@ -16,6 +16,7 @@ import android.content.IntentFilter;
 import android.location.Location;
 import android.media.AudioManager;
 import android.provider.Settings;
+import android.util.Log;
 import android.widget.Toast;
 import android.os.Build;
 import com.google.android.gms.location.DetectedActivity;
@@ -28,6 +29,11 @@ import com.marianhello.utils.ToneGenerator;
 import com.marianhello.utils.ToneGenerator.Tone;
 import com.marianhello.bgloc.data.BatteryInfo;
 import java.lang.reflect.Field;
+import java.util.concurrent.TimeUnit;
+
+import ir.programmerplus.realtime.BuildConfig;
+import ir.programmerplus.realtime.RealTime;
+
 /**
  * AbstractLocationProvider
  */
@@ -50,6 +56,15 @@ public abstract class AbstractLocationProvider implements LocationProvider {
 
     @Override
     public void onCreate() {
+        RealTime.builder(mContext)
+                .withNtpServer("time.nist.gov")
+                .withNtpServer("time.google.com")
+                .withNtpServer("time.windows.com")
+                .withTimeServer("https://bing.com")
+                .withTimeServer("https://google.com")
+                .setLoggingEnabled(BuildConfig.DEBUG)
+                .setSyncBackoffDelay(2, TimeUnit.HOURS)
+                .build(date -> Log.d("Real Time", "RealTime is initialized, current dateTime: " + date));
         toneGenerator = new ToneGenerator(AudioManager.STREAM_NOTIFICATION, 100);
     }
 
