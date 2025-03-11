@@ -8,15 +8,11 @@ import android.os.Bundle;
 import android.os.Parcel;
 import android.os.Parcelable;
 import androidx.core.util.TimeUtils;
-
-import com.marianhello.bgloc.data.BatteryInfo;
-import com.marianhello.bgloc.data.sqlite.SQLiteLocationContract;
 import com.marianhello.bgloc.data.sqlite.SQLiteLocationContract.LocationEntry;
+import com.marianhello.utils.RealTimeHelper;
 
 import org.json.JSONException;
 import org.json.JSONObject;
-
-import ir.programmerplus.realtime.RealTime;
 
 public class BackgroundLocation implements Parcelable {
     public static final int DELETED = 0;
@@ -103,7 +99,7 @@ public class BackgroundLocation implements Parcelable {
         latitude = l.latitude;
         longitude = l.longitude;
         time = l.time;
-        realtime = l.time;
+        realtime = RealTimeHelper.now().getTime();
         elapsedRealtimeNanos = l.elapsedRealtimeNanos;
         accuracy = l.accuracy;
         speed = l.speed;
@@ -120,15 +116,6 @@ public class BackgroundLocation implements Parcelable {
         batteryLevel = l.batteryLevel;
         isCharging = l.isCharging;
         extras = (l.extras == null) ? null : new Bundle(l.extras);
-
-        try{
-            if(RealTime.isInitialized()){
-                realtime = RealTime.now().getTime();
-            }
-        }
-        catch(Exception ignore){
-
-        }
     }
 
     private static BackgroundLocation fromParcel(Parcel in) {
@@ -169,7 +156,7 @@ public class BackgroundLocation implements Parcelable {
         l.latitude = location.getLatitude();
         l.longitude = location.getLongitude();
         l.time = location.getTime();
-        l.realtime = location.getTime();
+        l.realtime = RealTimeHelper.now().getTime();
         l.accuracy = location.getAccuracy();
         l.speed = location.getSpeed();
         l.bearing = location.getBearing();
@@ -186,16 +173,6 @@ public class BackgroundLocation implements Parcelable {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR2) {
             l.setIsFromMockProvider(location.isFromMockProvider());
         }
-
-        try{
-            if(RealTime.isInitialized()){
-                l.realtime = RealTime.now().getTime();
-            }
-        }
-        catch(Exception ignore){
-
-        }
-
 
         return l;
     }

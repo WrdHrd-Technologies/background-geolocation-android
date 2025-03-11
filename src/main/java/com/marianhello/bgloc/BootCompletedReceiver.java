@@ -14,12 +14,11 @@ import android.content.Context;
 import android.content.Intent;
 import android.os.Build;
 import android.util.Log;
-
 import com.marianhello.bgloc.data.ConfigurationDAO;
 import com.marianhello.bgloc.data.DAOFactory;
 import com.marianhello.bgloc.service.LocationServiceImpl;
 import com.marianhello.bgloc.service.LocationServiceIntentBuilder;
-
+import com.marianhello.utils.RealTimeHelper;
 import org.json.JSONException;
 
 /**
@@ -32,8 +31,12 @@ public class BootCompletedReceiver extends BroadcastReceiver {
     @Override
      public void onReceive(Context context, Intent intent) {
         Log.d(TAG, "Received boot completed");
+
+        RealTimeHelper.initialize(context);
+
         ConfigurationDAO dao = DAOFactory.createConfigurationDAO(context);
         Config config = null;
+
 
         try {
             config = dao.retrieveConfiguration();
