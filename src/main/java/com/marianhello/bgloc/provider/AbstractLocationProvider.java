@@ -27,6 +27,8 @@ import com.marianhello.logging.LoggerManager;
 import com.marianhello.utils.ToneGenerator;
 import com.marianhello.utils.ToneGenerator.Tone;
 import com.marianhello.bgloc.data.BatteryInfo;
+import com.wrdhrd.ActivityRecognition.ActivityTransitionService;
+
 import java.lang.reflect.Field;
 
 /**
@@ -43,26 +45,32 @@ public abstract class AbstractLocationProvider implements LocationProvider {
 
     private ProviderDelegate mDelegate;
 
+    private ActivityTransitionService mActivityTransitionDetectionService;
+
     protected AbstractLocationProvider(Context context) {
         mContext = context;
         logger = LoggerManager.getLogger(getClass());
+        mActivityTransitionDetectionService = new ActivityTransitionService(mContext);
         logger.info("Creating {}", getClass().getSimpleName());
     }
 
     @Override
     public void onCreate() {
         toneGenerator = new ToneGenerator(AudioManager.STREAM_NOTIFICATION, 100);
+        mActivityTransitionDetectionService.startActivity();
     }
 
     @Override
     public void onDestroy() {
         toneGenerator.release();
+        mActivityTransitionDetectionService.stopActivity();
         toneGenerator = null;
     }
 
     @Override
     public void onConfigure(Config config) {
         mConfig = config;
+        mActivityTransitionDetectionService.setProperties(this.mConfig,this.PROVIDER_ID);
     }
 
     @Override
@@ -72,6 +80,7 @@ public abstract class AbstractLocationProvider implements LocationProvider {
 
     public void setDelegate(ProviderDelegate delegate) {
         mDelegate = delegate;
+        mActivityTransitionDetectionService.setDelegate(delegate);
     }
 
     /**

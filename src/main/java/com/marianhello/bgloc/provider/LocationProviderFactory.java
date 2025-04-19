@@ -39,6 +39,9 @@ public class LocationProviderFactory {
             case Config.RAW_PROVIDER:
                 provider = new RawLocationProvider(mContext);
                 break;
+            case Config.FUSED_PROVIDER:
+                provider = new FusedLocationProvider(mContext);
+                break;
             default:
                 throw new IllegalArgumentException("Provider not found");
         }

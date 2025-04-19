@@ -25,6 +25,7 @@ import android.os.Bundle;
 
 import com.marianhello.bgloc.Config;
 import com.marianhello.bgloc.provider.AbstractLocationProvider;
+import com.marianhello.utils.ProviderSelector;
 import com.marianhello.utils.ToneGenerator.Tone;
 
 import java.util.List;
@@ -211,7 +212,9 @@ public class DistanceFilterLocationProvider extends AbstractLocationProvider imp
                     }
                 }
             } else {
-                locationManager.requestLocationUpdates(locationManager.getBestProvider(criteria, true), mConfig.getInterval(), scaledDistanceFilter, this);
+                String provider = ProviderSelector.getBestProvider(locationManager,mConfig);
+                //locationManager.requestLocationUpdates(locationManager.getBestProvider(criteria, true), mConfig.getInterval(), scaledDistanceFilter, this);
+                locationManager.requestLocationUpdates(provider, mConfig.getInterval(), scaledDistanceFilter, this);
             }
         } catch (SecurityException e) {
             logger.error("Security exception: {}", e.getMessage());
@@ -470,7 +473,6 @@ public class DistanceFilterLocationProvider extends AbstractLocationProvider imp
                     lastLocation = location;
                     lastLocationTime = System.currentTimeMillis();
                     handleLocation(location);
-                    return;
                 }
             }
             

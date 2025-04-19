@@ -8,7 +8,7 @@ import android.location.LocationManager;
 import android.os.Bundle;
 
 import com.marianhello.bgloc.Config;
-import com.marianhello.logging.LoggerManager;
+import com.marianhello.utils.ProviderSelector;
 
 /**
  * Created by finch on 7.11.2017.
@@ -36,17 +36,9 @@ public class RawLocationProvider extends AbstractLocationProvider implements Loc
             return;
         }
 
-        Criteria criteria = new Criteria();
-        criteria.setAltitudeRequired(false);
-        criteria.setBearingRequired(false);
-        criteria.setSpeedRequired(true);
-        criteria.setCostAllowed(true);
-        criteria.setAccuracy(Criteria.ACCURACY_FINE);
-        criteria.setHorizontalAccuracy(translateDesiredAccuracy(mConfig.getDesiredAccuracy()));
-        criteria.setPowerRequirement(Criteria.POWER_HIGH);
-
+        String provider = ProviderSelector.getBestProvider(locationManager,mConfig);
         try {
-            locationManager.requestLocationUpdates(locationManager.getBestProvider(criteria, true), mConfig.getInterval(), mConfig.getDistanceFilter(), this);
+            locationManager.requestLocationUpdates(provider, mConfig.getInterval(), mConfig.getDistanceFilter(), this);
             isStarted = true;
         } catch (SecurityException e) {
             logger.error("Security exception: {}", e.getMessage());
