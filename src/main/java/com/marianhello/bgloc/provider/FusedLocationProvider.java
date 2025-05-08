@@ -39,6 +39,7 @@ public class FusedLocationProvider extends AbstractLocationProvider implements L
             return;
         }
         try {
+            super.onStart();
             logger.error("Starting Location Update with : Interval : {} : Distance Filter {} ", mConfig.getInterval(), mConfig.getDistanceFilter());
             locationRequest = new LocationRequest.Builder( translateDesiredAccuracy(mConfig.getDesiredAccuracy()), mConfig.getInterval())
                     .setWaitForAccurateLocation(true)
@@ -59,6 +60,7 @@ public class FusedLocationProvider extends AbstractLocationProvider implements L
             return;
         }
         try {
+            super.onStop();
             logger.error("Stopping location Update");
             client.removeLocationUpdates(this);
         } catch (SecurityException e) {

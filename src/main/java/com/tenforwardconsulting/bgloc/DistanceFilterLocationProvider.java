@@ -125,8 +125,8 @@ public class DistanceFilterLocationProvider extends AbstractLocationProvider imp
         }
 
         logger.info("Start recording");
-        scaledDistanceFilter = mConfig.getDistanceFilter();
         super.onStart();
+        scaledDistanceFilter = mConfig.getDistanceFilter();
         isStarted = true;
         setPace(false);
     }
