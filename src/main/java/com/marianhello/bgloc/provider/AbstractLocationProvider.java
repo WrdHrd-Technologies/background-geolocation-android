@@ -57,13 +57,23 @@ public abstract class AbstractLocationProvider implements LocationProvider {
     @Override
     public void onCreate() {
         toneGenerator = new ToneGenerator(AudioManager.STREAM_NOTIFICATION, 100);
+        mActivityTransitionDetectionService.onCreate();
+    }
+
+    @Override
+    public void onStart() {
         mActivityTransitionDetectionService.startActivity();
+    }
+
+    @Override
+    public void onStop() {
+        mActivityTransitionDetectionService.stopActivity();
     }
 
     @Override
     public void onDestroy() {
         toneGenerator.release();
-        mActivityTransitionDetectionService.stopActivity();
+        mActivityTransitionDetectionService.onDestroy();
         toneGenerator = null;
     }
 

@@ -39,6 +39,7 @@ public class ActivityTransitionService {
     private Context mContext;
     private Config mConfig;
     private ProviderDelegate mDelegate;
+    private List<ActivityTransition> activityTransitionList;
 
     private PendingIntent mPendingIntent;
     private DetectedActivity lastActivity = new DetectedActivity(DetectedActivity.UNKNOWN, 100);
@@ -73,11 +74,9 @@ public class ActivityTransitionService {
         return mContext.registerReceiver(receiver, filter);
     }
 
-    public void startActivity() {
-        // List of activity transitions to track.
-        List<ActivityTransition> activityTransitionList = new ArrayList<>();
-
+    public void onCreate() {
         // TODO: Add activity transitions to track.
+        activityTransitionList = new ArrayList<>();
         // VEHICLE
         activityTransitionList.add(new ActivityTransition.Builder()
                 .setActivityType(DetectedActivity.IN_VEHICLE)
@@ -107,9 +106,10 @@ public class ActivityTransitionService {
         Intent detectedActivitiesIntent = new Intent(DETECTED_ACTIVITY_UPDATE);
         detectedActivitiesIntent.setPackage(mContext.getPackageName());
         mPendingIntent = PendingIntent.getBroadcast(mContext, 9006, detectedActivitiesIntent, flag);
-
         registerReceiver(receiver, new IntentFilter(DETECTED_ACTIVITY_UPDATE));
+    }
 
+    public void startActivity() {
         ActivityTransitionRequest request = new ActivityTransitionRequest(activityTransitionList);
         Task<Void> task = ActivityRecognition.getClient(mContext)
                 .requestActivityTransitionUpdates(request, mPendingIntent);
@@ -120,8 +120,7 @@ public class ActivityTransitionService {
         task.addOnFailureListener(e -> Log.e(TAG, "Requesting activity updates failed to start", e));
     }
 
-    public void removeActivityUpdatesButtonHandler() {
-
+    public void stopActivity() {
         ActivityRecognition.getClient(mContext).removeActivityTransitionUpdates(mPendingIntent)
                 .addOnSuccessListener(new OnSuccessListener<Void>() {
                     @Override
@@ -135,12 +134,10 @@ public class ActivityTransitionService {
                         Log.d(TAG,"Transitions could not registered.");
                     }
                 });
-
-        unregisterReceiver(receiver);
     }
 
-    public void stopActivity() {
-        removeActivityUpdatesButtonHandler();
+    public void onDestroy() {
+        unregisterReceiver(receiver);
     }
 
     protected void handleActivity(DetectedActivity activity) {
@@ -186,6 +183,8 @@ public class ActivityTransitionService {
             Toast.makeText(mContext, text, Toast.LENGTH_LONG).show();
         }
     }
+
+
 
     BroadcastReceiver receiver = new BroadcastReceiver() {
         @Override

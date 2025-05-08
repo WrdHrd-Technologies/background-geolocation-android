@@ -38,6 +38,7 @@ public class RawLocationProvider extends AbstractLocationProvider implements Loc
 
         String provider = ProviderSelector.getBestProvider(locationManager,mConfig);
         try {
+            super.onStart();
             locationManager.requestLocationUpdates(provider, mConfig.getInterval(), mConfig.getDistanceFilter(), this);
             isStarted = true;
         } catch (SecurityException e) {
@@ -52,6 +53,7 @@ public class RawLocationProvider extends AbstractLocationProvider implements Loc
             return;
         }
         try {
+            super.onStop();
             locationManager.removeUpdates(this);
         } catch (SecurityException e) {
             logger.error("Security exception: {}", e.getMessage());
