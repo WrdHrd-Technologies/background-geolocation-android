@@ -126,6 +126,7 @@ public class DistanceFilterLocationProvider extends AbstractLocationProvider imp
 
         logger.info("Start recording");
         scaledDistanceFilter = mConfig.getDistanceFilter();
+        super.onStart();
         isStarted = true;
         setPace(false);
     }
@@ -137,6 +138,7 @@ public class DistanceFilterLocationProvider extends AbstractLocationProvider imp
         }
 
         try {
+            super.onStop();
             locationManager.removeUpdates(this);
             locationManager.removeProximityAlert(stationaryRegionPI);
         } catch (SecurityException e) {
