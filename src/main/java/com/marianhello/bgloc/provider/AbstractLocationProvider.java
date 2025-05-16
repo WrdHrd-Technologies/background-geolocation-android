@@ -46,6 +46,7 @@ public abstract class AbstractLocationProvider implements LocationProvider {
     private ProviderDelegate mDelegate;
 
     private ActivityTransitionService mActivityTransitionDetectionService;
+    private Location lastLocation;
 
     protected AbstractLocationProvider(Context context) {
         mContext = context;
@@ -126,6 +127,12 @@ public abstract class AbstractLocationProvider implements LocationProvider {
     protected void handleLocation (Location location) {
         playDebugTone(Tone.BEEP);
         if (mDelegate != null) {
+            //Prevent Duplicate Location
+            if(lastLocation != null) {
+                if(lastLocation.getTime() == location.getTime()) return;
+            }
+            lastLocation = location;
+
             BatteryInfo batteryInfo = new BatteryInfo(mContext);
             BackgroundLocation bgLocation = new BackgroundLocation(PROVIDER_ID, location,batteryInfo);
             bgLocation.setMockLocationsEnabled(hasMockLocationsEnabled());
