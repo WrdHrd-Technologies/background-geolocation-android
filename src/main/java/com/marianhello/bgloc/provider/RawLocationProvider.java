@@ -19,8 +19,7 @@ public class RawLocationProvider extends AbstractLocationProvider implements Loc
     private boolean isStarted = false;
 
     public RawLocationProvider(Context context) {
-        super(context);
-        PROVIDER_ID = Config.RAW_PROVIDER;
+        super(context,Config.RAW_PROVIDER);
     }
 
     @Override

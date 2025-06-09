@@ -23,8 +23,7 @@ public class FusedLocationProvider extends AbstractLocationProvider implements L
     private boolean isStarted = false;
 
     public FusedLocationProvider(Context context) {
-        super(context);
-        PROVIDER_ID = Config.FUSED_PROVIDER;
+        super(context,Config.FUSED_PROVIDER);
     }
 
     @Override

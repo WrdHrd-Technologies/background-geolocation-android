@@ -75,8 +75,7 @@ public class DistanceFilterLocationProvider extends AbstractLocationProvider imp
     private boolean isStarted = false;
 
     public DistanceFilterLocationProvider(Context context) {
-        super(context);
-        PROVIDER_ID = Config.DISTANCE_FILTER_PROVIDER;
+        super(context,Config.DISTANCE_FILTER_PROVIDER);
     }
 
     @Override

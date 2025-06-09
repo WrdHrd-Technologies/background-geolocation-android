@@ -40,8 +40,7 @@ public class ActivityRecognitionLocationProvider extends AbstractLocationProvide
     private DetectedActivity lastActivity = new DetectedActivity(DetectedActivity.UNKNOWN, 100);
 
     public ActivityRecognitionLocationProvider(Context context) {
-        super(context);
-        PROVIDER_ID = Config.ACTIVITY_PROVIDER;
+        super(context,Config.ACTIVITY_PROVIDER);
     }
 
     @Override

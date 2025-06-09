@@ -48,40 +48,53 @@ public abstract class AbstractLocationProvider implements LocationProvider {
     private ActivityTransitionService mActivityTransitionDetectionService;
     private Location lastLocation;
 
-    protected AbstractLocationProvider(Context context) {
+    protected AbstractLocationProvider(Context context, Integer provider_id) {
         mContext = context;
         logger = LoggerManager.getLogger(getClass());
-        mActivityTransitionDetectionService = new ActivityTransitionService(mContext);
+        this.PROVIDER_ID=provider_id;
+        if (provider_id == Config.FUSED_PROVIDER) {
+            mActivityTransitionDetectionService = new ActivityTransitionService(mContext);
+        }
         logger.info("Creating {}", getClass().getSimpleName());
     }
 
     @Override
     public void onCreate() {
         toneGenerator = new ToneGenerator(AudioManager.STREAM_NOTIFICATION, 100);
-        mActivityTransitionDetectionService.onCreate();
+        if (mActivityTransitionDetectionService != null){
+            mActivityTransitionDetectionService.onCreate();
+        }
     }
 
     @Override
     public void onStart() {
-        mActivityTransitionDetectionService.startActivity();
+        if (mActivityTransitionDetectionService != null){
+            mActivityTransitionDetectionService.startActivity();
+        }
     }
 
     @Override
     public void onStop() {
-        mActivityTransitionDetectionService.stopActivity();
+        if (mActivityTransitionDetectionService != null) {
+            mActivityTransitionDetectionService.stopActivity();
+        }
     }
 
     @Override
     public void onDestroy() {
         toneGenerator.release();
-        mActivityTransitionDetectionService.onDestroy();
+        if (mActivityTransitionDetectionService != null) {
+            mActivityTransitionDetectionService.onDestroy();
+        }
         toneGenerator = null;
     }
 
     @Override
     public void onConfigure(Config config) {
         mConfig = config;
-        mActivityTransitionDetectionService.setProperties(this.mConfig,this.PROVIDER_ID);
+        if (mActivityTransitionDetectionService != null) {
+            mActivityTransitionDetectionService.setProperties(this.mConfig, this.PROVIDER_ID);
+        }
     }
 
     @Override
@@ -91,7 +104,9 @@ public abstract class AbstractLocationProvider implements LocationProvider {
 
     public void setDelegate(ProviderDelegate delegate) {
         mDelegate = delegate;
-        mActivityTransitionDetectionService.setDelegate(delegate);
+        if (mActivityTransitionDetectionService != null) {
+            mActivityTransitionDetectionService.setDelegate(delegate);
+        }
     }
 
     /**
