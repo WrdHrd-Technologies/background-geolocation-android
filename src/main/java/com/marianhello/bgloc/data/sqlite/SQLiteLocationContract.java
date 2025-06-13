@@ -39,6 +39,9 @@ public final class SQLiteLocationContract {
         public static final String COLUMN_NAME_CHARGING_FLAG = "charging_flag";
         public static final String COLUMN_NAME_REALTIME = "realtime";
         public static final String COLUMN_NAME_ELAPSEDREALTIMENANO = "elapsedrealtimenano";
+        public static final String COLUMN_NAME_GEOFENCE_ID = "geofence_id";
+        public static final String COLUMN_NAME_GEOFENCE_NAME = "geofence_name";
+        public static final String COLUMN_NAME_ACTIVITY = "activity";
 
         public static final String SQL_CREATE_LOCATION_TABLE =
                 "CREATE TABLE " + LocationEntry.TABLE_NAME + " (" +
@@ -65,6 +68,9 @@ public final class SQLiteLocationContract {
                         LocationEntry.COLUMN_NAME_CHARGING_FLAG + INTEGER_TYPE + COMMA_SEP +
                         LocationEntry.COLUMN_NAME_REALTIME + INTEGER_TYPE + COMMA_SEP +
                         LocationEntry.COLUMN_NAME_ELAPSEDREALTIMENANO + INTEGER_TYPE +
+                        LocationEntry.COLUMN_NAME_GEOFENCE_ID + INTEGER_TYPE +
+                        LocationEntry.COLUMN_NAME_GEOFENCE_NAME + TEXT_TYPE +
+                        LocationEntry.COLUMN_NAME_ACTIVITY + TEXT_TYPE +
                         " )";
 
         public static final String SQL_DROP_LOCATION_TABLE =
@@ -112,7 +118,10 @@ public final class SQLiteLocationContract {
                 COLUMN_NAME_BATTERY_LEVEL,
                 COLUMN_NAME_CHARGING_FLAG,
                 COLUMN_NAME_REALTIME,
-                COLUMN_NAME_ELAPSEDREALTIMENANO
+                COLUMN_NAME_ELAPSEDREALTIMENANO,
+                COLUMN_NAME_GEOFENCE_ID,
+                COLUMN_NAME_GEOFENCE_NAME,
+                COLUMN_NAME_ACTIVITY
         };
     }
 }

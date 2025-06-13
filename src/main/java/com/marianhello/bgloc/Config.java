@@ -61,6 +61,9 @@ public class Config implements Parcelable
     private Boolean stopOnStillActivity;
     private String url;
     private String syncUrl;
+    private Boolean geofence;
+    private String geofenceUrl;
+    private String syncGeofenceUrl;
     private Integer syncThreshold;
     private HashMap httpHeaders;
     private Integer maxLocations;
@@ -93,6 +96,9 @@ public class Config implements Parcelable
         this.url = config.url;
         this.syncUrl = config.syncUrl;
         this.syncThreshold = config.syncThreshold;
+        this.geofence = config.geofence;
+        this.geofenceUrl = config.geofenceUrl;
+        this.syncGeofenceUrl = config.syncGeofenceUrl;
         this.httpHeaders = CloneHelper.deepCopy(config.httpHeaders);
         this.maxLocations = config.maxLocations;
         if (config.template instanceof AbstractLocationTemplate) {
@@ -122,6 +128,9 @@ public class Config implements Parcelable
         setStopOnStillActivity((Boolean) in.readValue(null));
         setUrl(in.readString());
         setSyncUrl(in.readString());
+        setGeofence((Boolean) in.readValue(null));
+        setGeofenceUrl(in.readString());
+        setSyncGeofenceUrl(in.readString());
         setSyncThreshold(in.readInt());
         setMaxLocations(in.readInt());
         Bundle bundle = in.readBundle();
@@ -152,6 +161,9 @@ public class Config implements Parcelable
         config.stopOnStillActivity = true;
         config.url = "";
         config.syncUrl = "";
+        config.geofence = false;
+        config.geofenceUrl = "";
+        config.syncGeofenceUrl = "";
         config.syncThreshold = 100;
         config.httpHeaders = null;
         config.maxLocations = 10000;
@@ -187,6 +199,9 @@ public class Config implements Parcelable
         out.writeValue(getStopOnStillActivity());
         out.writeString(getUrl());
         out.writeString(getSyncUrl());
+        out.writeValue(getGeofence());
+        out.writeString(getGeofenceUrl());
+        out.writeString(getSyncGeofenceUrl());
         out.writeInt(getSyncThreshold());
         out.writeInt(getMaxLocations());
         Bundle bundle = new Bundle();
@@ -301,7 +316,6 @@ public class Config implements Parcelable
     public String getLargeNotificationIcon () {
         return notificationIconLarge;
     }
-
     public void setLargeNotificationIcon (String icon) {
         this.notificationIconLarge = icon;
     }
@@ -469,6 +483,49 @@ public class Config implements Parcelable
         this.syncUrl = syncUrl;
     }
 
+    public boolean hasGeofence() {
+        return geofence != null;
+    }
+
+    public Boolean getGeofence() {
+        return geofence;
+    }
+
+    public void setGeofence(Boolean geofence) {
+        this.geofence = geofence;
+    }
+
+    public boolean hasGeofenceUrl() {
+        return geofenceUrl != null;
+    }
+    public boolean hasValidGeofenceUrl() {
+        return geofenceUrl != null && !geofenceUrl.isEmpty();
+    }
+
+    public String getGeofenceUrl() {
+        return geofenceUrl;
+    }
+
+    public void setGeofenceUrl(String geofenceurl) {
+        this.geofenceUrl = geofenceurl;
+    }
+
+
+    public boolean hasSyncGeofenceUrl() {
+        return syncGeofenceUrl != null;
+    }
+    public boolean hasValidSyncGeofenceUrl() {
+        return syncGeofenceUrl != null && !syncGeofenceUrl.isEmpty();
+    }
+
+    public String getSyncGeofenceUrl() {
+        return syncGeofenceUrl;
+    }
+
+    public void setSyncGeofenceUrl(String syncGeofenceurl) {
+        this.syncGeofenceUrl = syncGeofenceurl;
+    }
+
     public boolean hasSyncThreshold() {
         return syncThreshold != null;
     }
@@ -562,6 +619,9 @@ public class Config implements Parcelable
                 .append(" nIconColor=").append(getNotificationIconColor())
                 .append(" url=").append(getUrl())
                 .append(" syncUrl=").append(getSyncUrl())
+                .append(" geofenceUrl=").append(getGeofence())
+                .append(" geofenceUrl=").append(getGeofenceUrl())
+                .append(" syncGeofenceUrl=").append(getSyncGeofenceUrl())
                 .append(" syncThreshold=").append(getSyncThreshold())
                 .append(" httpHeaders=").append(getHttpHeaders().toString())
                 .append(" maxLocations=").append(getMaxLocations())
@@ -648,6 +708,15 @@ public class Config implements Parcelable
         }
         if (config2.hasSyncUrl()) {
             merger.setSyncUrl(config2.getSyncUrl());
+        }
+        if (config2.hasGeofence()) {
+            merger.setGeofence(config2.getGeofence());
+        }
+        if (config2.hasGeofenceUrl()) {
+            merger.setGeofenceUrl(config2.getGeofenceUrl());
+        }
+        if (config2.hasSyncGeofenceUrl()) {
+            merger.setSyncGeofenceUrl(config2.getSyncGeofenceUrl());
         }
         if (config2.hasSyncThreshold()) {
             merger.setSyncThreshold(config2.getSyncThreshold());

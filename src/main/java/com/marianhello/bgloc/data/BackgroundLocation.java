@@ -19,6 +19,8 @@ public class BackgroundLocation implements Parcelable {
     public static final int POST_PENDING = 1;
     public static final int SYNC_PENDING = 2;
 
+    private Long geofenceId = null;
+    private String geofenceName = "";
     private Long locationId = null;
     private Integer locationProvider = null;
     private Integer batteryLevel = null;
@@ -42,6 +44,7 @@ public class BackgroundLocation implements Parcelable {
     private boolean isCharging = false;
     private int mockFlags = 0x0000;
     private int status = POST_PENDING;
+    private String activity = "";
     private Bundle extras = null;
 
     private static final long TWO_MINUTES_IN_NANOS = 1000000000L * 60 * 2;
@@ -59,32 +62,6 @@ public class BackgroundLocation implements Parcelable {
     @Deprecated
     public BackgroundLocation(Location location) {
         this(BackgroundLocation.fromLocation(location));
-    }
-
-    @Deprecated
-    public BackgroundLocation(Integer locationProvider, Location location) {
-        this(location);
-        this.locationProvider = locationProvider;
-    }
-
-    @Deprecated
-    public BackgroundLocation(Integer locationProvider, Location location,BatteryInfo batteryInfo) {
-        this(location);
-        this.locationProvider = locationProvider;
-        this.setBatteryLevel(batteryInfo.getBatteryLevel());
-        this.setIsCharging(batteryInfo.getIsCharging());
-    }
-
-    /**
-     * Construct stationary BackgroundLocation.
-     * @param locationProvider
-     * @param location
-     * @param radius radius of stationary region
-     */
-    @Deprecated
-    public BackgroundLocation(Integer locationProvider, Location location, float radius) {
-        this(locationProvider, location);
-        setRadius(radius);
     }
 
     /**
@@ -115,6 +92,9 @@ public class BackgroundLocation implements Parcelable {
         status = l.status;
         batteryLevel = l.batteryLevel;
         isCharging = l.isCharging;
+        geofenceId = l.geofenceId;
+        geofenceName = l.geofenceName;
+        activity = l.activity;
         extras = (l.extras == null) ? null : new Bundle(l.extras);
     }
 
@@ -144,6 +124,9 @@ public class BackgroundLocation implements Parcelable {
         l.batteryLevel = in.readInt();
         l.isCharging = in.readInt() != 0;
         l.realtime = in.readLong();
+        l.geofenceId = in.readLong();
+        l.geofenceName = in.readString();
+        l.activity = in.readString();
         l.extras = in.readBundle();
 
         return l;
@@ -213,7 +196,10 @@ public class BackgroundLocation implements Parcelable {
         l.setLocationId(c.getLong(c.getColumnIndex(LocationEntry._ID)));
         l.setMockFlags(c.getInt((c.getColumnIndex(LocationEntry.COLUMN_NAME_MOCK_FLAGS))));
         l.setBatteryLevel(c.getInt((c.getColumnIndex(LocationEntry.COLUMN_NAME_BATTERY_LEVEL))));
-        l.setIsCharging(c.getInt((c.getColumnIndex(LocationEntry.COLUMN_NAME_BATTERY_LEVEL))) == 1);
+        l.setIsCharging(c.getInt((c.getColumnIndex(LocationEntry.COLUMN_NAME_CHARGING_FLAG))) == 1);
+        l.setGeofenceId(c.getLong((c.getColumnIndex(LocationEntry.COLUMN_NAME_GEOFENCE_ID))));
+        l.setGeofenceName(c.getString((c.getColumnIndex(LocationEntry.COLUMN_NAME_GEOFENCE_NAME))));
+        l.setActivity(c.getString((c.getColumnIndex(LocationEntry.COLUMN_NAME_ACTIVITY))));
 
         return l;
     }
@@ -248,6 +234,9 @@ public class BackgroundLocation implements Parcelable {
         dest.writeInt(batteryLevel);
         dest.writeInt(isCharging ? 1: 0);
         dest.writeLong(realtime);
+        dest.writeLong(geofenceId);
+        dest.writeString(geofenceName);
+        dest.writeString(activity);
         dest.writeBundle(extras);
     }
 
@@ -281,6 +270,56 @@ public class BackgroundLocation implements Parcelable {
      */
     public void setLocationId(Long locationId) {
         this.locationId = locationId;
+    }
+
+    /**
+     * Returns geofence id in which this location fall
+     * @return location geofence id
+     */
+    public Long getGeofenceId() {
+        return this.geofenceId;
+    }
+
+    /**
+     * Sets geofenceId
+     * used when location was persisted into db and system will check geofence and will store geofenceId
+     * @param geofenceId
+     */
+    public void setGeofenceId(Long geofenceId) {
+        this.geofenceId = geofenceId;
+    }
+
+    /**
+     * Returns geofence name in which this location fall
+     * @return location geofence name
+     */
+    public String getGeofenceName() {
+        return this.geofenceName;
+    }
+
+    /**
+     * Sets geofenceName
+     * used when location was persisted into db and system will check geofence and will store geofenceName
+     * @param geofenceName
+     */
+    public void setGeofenceName(String geofenceName) {
+        this.geofenceName = geofenceName;
+    }
+
+    /**
+     * Returns the activity of user at the time of location generation
+     * @return activity
+     */
+    public String getActivity() {
+        return activity;
+    }
+
+    /**
+     * Sets the activity of user
+     * @param activity
+     */
+    public void setActivity(String activity) {
+        this.activity = activity;
     }
 
     /**
@@ -923,6 +962,9 @@ public class BackgroundLocation implements Parcelable {
         s.append(" locprov=").append(locationProvider);
         s.append(" btrLvl=").append(batteryLevel);
         if(isCharging) s.append(" charging");
+        s.append(" GeofenceId=").append(geofenceId);
+        s.append(" GeofenceName=").append(geofenceName);
+        s.append(" Activity=").append(activity);
         s.append("]");
 
         return s.toString();
@@ -950,6 +992,9 @@ public class BackgroundLocation implements Parcelable {
         json.put("batteryLevel", batteryLevel);
         json.put("isCharging", isCharging);
         json.put("realtime", realtime);
+        json.put("geofenceId", geofenceId);
+        json.put("geofenceName", geofenceName);
+        json.put("activity", activity);
         return json;
     }
 
@@ -994,6 +1039,9 @@ public class BackgroundLocation implements Parcelable {
         values.put(LocationEntry.COLUMN_NAME_CHARGING_FLAG, isCharging);
         values.put(LocationEntry.COLUMN_NAME_REALTIME, realtime);
         values.put(LocationEntry.COLUMN_NAME_ELAPSEDREALTIMENANO, elapsedRealtimeNanos);
+        values.put(LocationEntry.COLUMN_NAME_GEOFENCE_ID, geofenceId);
+        values.put(LocationEntry.COLUMN_NAME_GEOFENCE_NAME, geofenceName);
+        values.put(LocationEntry.COLUMN_NAME_ACTIVITY, activity);
         return values;
     }
 
@@ -1048,6 +1096,16 @@ public class BackgroundLocation implements Parcelable {
         }
         if ("@isCharging".equals(key)) {
             return isCharging;
+        }
+
+        if ("@geofenceId".equals(key)) {
+            return geofenceId;
+        }
+        if ("@geofenceName".equals(key)) {
+            return geofenceName;
+        }
+        if ("@activity".equals(key)) {
+            return activity;
         }
 
         return null;

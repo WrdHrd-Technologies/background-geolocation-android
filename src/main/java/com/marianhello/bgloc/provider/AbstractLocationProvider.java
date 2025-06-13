@@ -26,7 +26,7 @@ import com.marianhello.bgloc.data.BackgroundLocation;
 import com.marianhello.logging.LoggerManager;
 import com.marianhello.utils.ToneGenerator;
 import com.marianhello.utils.ToneGenerator.Tone;
-import com.marianhello.bgloc.data.BatteryInfo;
+import com.marianhello.bgloc.data.BatteryUtils;
 import com.wrdhrd.ActivityRecognition.ActivityTransitionService;
 
 import java.lang.reflect.Field;
@@ -141,16 +141,22 @@ public abstract class AbstractLocationProvider implements LocationProvider {
      */
     protected void handleLocation (Location location) {
         playDebugTone(Tone.BEEP);
-        if (mDelegate != null) {
+        if (mDelegate != null && location != null) {
             //Prevent Duplicate Location
             if(lastLocation != null) {
                 if(lastLocation.getTime() == location.getTime()) return;
             }
             lastLocation = location;
 
-            BatteryInfo batteryInfo = new BatteryInfo(mContext);
-            BackgroundLocation bgLocation = new BackgroundLocation(PROVIDER_ID, location,batteryInfo);
+            BatteryUtils.BatteryInfo batteryInfo = BatteryUtils.getBatteryStatus(mContext);
+            BackgroundLocation bgLocation = BackgroundLocation.fromLocation(location);
             bgLocation.setMockLocationsEnabled(hasMockLocationsEnabled());
+            bgLocation.setLocationProvider(PROVIDER_ID);
+            bgLocation.setBatteryLevel(batteryInfo.getBatteryPercentage());
+            bgLocation.setIsCharging(batteryInfo.isCharging());
+            if(mActivityTransitionDetectionService != null){
+                bgLocation.setActivity(mActivityTransitionDetectionService.getLastActivityName());
+            }
             mDelegate.onLocation(bgLocation);
         }
     }
@@ -163,11 +169,17 @@ public abstract class AbstractLocationProvider implements LocationProvider {
      */
     protected void handleStationary (Location location, float radius) {
         playDebugTone(Tone.LONG_BEEP);
-        if (mDelegate != null) {
-            BatteryInfo batteryInfo = new BatteryInfo(mContext);
-            BackgroundLocation bgLocation = new BackgroundLocation(PROVIDER_ID, location,batteryInfo);
-            bgLocation.setRadius(radius);
+        if (mDelegate != null && location != null) {
+            BatteryUtils.BatteryInfo batteryInfo = BatteryUtils.getBatteryStatus(mContext);
+            BackgroundLocation bgLocation = BackgroundLocation.fromLocation(location);
             bgLocation.setMockLocationsEnabled(hasMockLocationsEnabled());
+            bgLocation.setLocationProvider(PROVIDER_ID);
+            bgLocation.setBatteryLevel(batteryInfo.getBatteryPercentage());
+            bgLocation.setIsCharging(batteryInfo.isCharging());
+            bgLocation.setRadius(radius);
+            if(mActivityTransitionDetectionService != null){
+                bgLocation.setActivity(mActivityTransitionDetectionService.getLastActivityName());
+            }
             mDelegate.onStationary(bgLocation);
         }
     }
@@ -179,10 +191,16 @@ public abstract class AbstractLocationProvider implements LocationProvider {
      */
     protected void handleStationary (Location location) {
         playDebugTone(Tone.LONG_BEEP);
-        if (mDelegate != null) {
-            BatteryInfo batteryInfo = new BatteryInfo(mContext);
-            BackgroundLocation bgLocation = new BackgroundLocation(PROVIDER_ID, location,batteryInfo);
+        if (mDelegate != null && location != null) {
+            BatteryUtils.BatteryInfo batteryInfo = BatteryUtils.getBatteryStatus(mContext);
+            BackgroundLocation bgLocation = BackgroundLocation.fromLocation(location);
             bgLocation.setMockLocationsEnabled(hasMockLocationsEnabled());
+            bgLocation.setLocationProvider(PROVIDER_ID);
+            bgLocation.setBatteryLevel(batteryInfo.getBatteryPercentage());
+            bgLocation.setIsCharging(batteryInfo.isCharging());
+            if(mActivityTransitionDetectionService != null){
+                bgLocation.setActivity(mActivityTransitionDetectionService.getLastActivityName());
+            }
             mDelegate.onStationary(bgLocation);
         }
     }

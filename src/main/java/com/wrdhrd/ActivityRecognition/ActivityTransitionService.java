@@ -184,7 +184,9 @@ public class ActivityTransitionService {
         }
     }
 
-
+    public String getLastActivityName(){
+        return getActivityName(lastActivity.getType());
+    }
 
     BroadcastReceiver receiver = new BroadcastReceiver() {
         @Override
@@ -208,6 +210,7 @@ public class ActivityTransitionService {
 
                 DetectedActivity activity = new DetectedActivity(activityType, 100);
                 handleActivity(activity);
+                lastActivity = activity;
             }else{
                 Log.i(TAG,"result was null");
             }

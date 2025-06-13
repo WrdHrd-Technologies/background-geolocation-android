@@ -17,11 +17,12 @@ import static com.marianhello.bgloc.data.sqlite.SQLiteLocationContract.LocationE
 import static com.marianhello.bgloc.data.sqlite.SQLiteLocationContract.LocationEntry.SQL_CREATE_LOCATION_TABLE_BATCH_ID_IDX;
 import static com.marianhello.bgloc.data.sqlite.SQLiteLocationContract.LocationEntry.SQL_CREATE_LOCATION_TABLE_TIME_IDX;
 import static com.marianhello.bgloc.data.sqlite.SQLiteLocationContract.LocationEntry.SQL_DROP_LOCATION_TABLE;
-
+import static com.wrdhrd.geofence.data.sqlite.SQLiteGeofenceContract.GeofenceEntry.SQL_CREATE_GEOFENCE_TABLE;
+import static com.wrdhrd.geofence.data.sqlite.SQLiteGeofenceContract.GeofenceEntry.SQL_DROP_GEOFENCE_TABLE;
 public class SQLiteOpenHelper extends android.database.sqlite.SQLiteOpenHelper {
     private static final String TAG = SQLiteOpenHelper.class.getName();
     public static final String SQLITE_DATABASE_NAME = "cordova_bg_geolocation.db";
-    public static final int DATABASE_VERSION = 18;
+    public static final int DATABASE_VERSION = 19;
 
     public static final String TEXT_TYPE = " TEXT";
     public static final String INTEGER_TYPE = " INTEGER";
@@ -66,6 +67,8 @@ public class SQLiteOpenHelper extends android.database.sqlite.SQLiteOpenHelper {
         execAndLogSql(db, SQL_CREATE_CONFIG_TABLE);
         execAndLogSql(db, SQL_CREATE_LOCATION_TABLE_TIME_IDX);
         execAndLogSql(db, SQL_CREATE_LOCATION_TABLE_BATCH_ID_IDX);
+
+        execAndLogSql(db, SQL_CREATE_GEOFENCE_TABLE);
     }
 
     @Override
@@ -126,6 +129,21 @@ public class SQLiteOpenHelper extends android.database.sqlite.SQLiteOpenHelper {
                         " ADD COLUMN " + LocationEntry.COLUMN_NAME_REALTIME + INTEGER_TYPE);
                 alterSql.add("ALTER TABLE " + LocationEntry.TABLE_NAME +
                         " ADD COLUMN " + LocationEntry.COLUMN_NAME_ELAPSEDREALTIMENANO + INTEGER_TYPE);
+            case 18:
+                alterSql.add("ALTER TABLE " + ConfigurationEntry.TABLE_NAME +
+                        " ADD COLUMN " + ConfigurationEntry.COLUMN_NAME_GEOFENCE + INTEGER_TYPE);
+                alterSql.add("ALTER TABLE " + ConfigurationEntry.TABLE_NAME +
+                             " ADD COLUMN " + ConfigurationEntry.COLUMN_NAME_GEOFENCE_URL + TEXT_TYPE);
+                alterSql.add("ALTER TABLE " + ConfigurationEntry.TABLE_NAME +
+                        " ADD COLUMN " + ConfigurationEntry.COLUMN_NAME_SYNC_GEOFENCE_URL + TEXT_TYPE);
+
+                alterSql.add("ALTER TABLE " + LocationEntry.TABLE_NAME +
+                        " ADD COLUMN " + LocationEntry.COLUMN_NAME_GEOFENCE_ID + INTEGER_TYPE);
+                alterSql.add("ALTER TABLE " + LocationEntry.TABLE_NAME +
+                        " ADD COLUMN " + LocationEntry.COLUMN_NAME_GEOFENCE_NAME + TEXT_TYPE);
+
+                alterSql.add(SQL_DROP_GEOFENCE_TABLE);
+                alterSql.add(SQL_CREATE_GEOFENCE_TABLE);
                 break; // DO NOT FORGET TO MOVE DOWN BREAK ON DB UPGRADE!!!
             default:
                 onDowngrade(db, 0, 0);
@@ -142,6 +160,7 @@ public class SQLiteOpenHelper extends android.database.sqlite.SQLiteOpenHelper {
         // we don't support db downgrade yet, instead we drop table and start over
         execAndLogSql(db, SQL_DROP_LOCATION_TABLE);
         execAndLogSql(db, SQL_DROP_CONFIG_TABLE);
+        execAndLogSql(db, SQL_DROP_GEOFENCE_TABLE);
         onCreate(db);
     }
 

@@ -62,6 +62,7 @@ import com.marianhello.bgloc.sync.AccountHelper;
 import com.marianhello.bgloc.sync.SyncService;
 import com.marianhello.logging.LoggerManager;
 import com.marianhello.logging.UncaughtExceptionLogger;
+import com.wrdhrd.geofence.GeofenceHelper;
 
 
 import org.chromium.content.browser.ThreadUtils;
@@ -123,6 +124,7 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
     private HandlerThread mHandlerThread;
     private ServiceHandler mServiceHandler;
     private LocationDAO mLocationDAO;
+    private GeofenceHelper mGeofenceHelper;
     private PostLocationTask mPostLocationTask;
     private String mHeadlessTaskRunnerClass;
     private TaskRunner mHeadlessTaskRunner;
@@ -209,7 +211,7 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
         ContentResolver.setSyncAutomatically(mSyncAccount, authority, true);
 
         mLocationDAO = DAOFactory.createLocationDAO(this);
-
+        mGeofenceHelper = new GeofenceHelper(this);
         // PARTIAL_WAKELOCK
         PowerManager powerManager = (PowerManager) getSystemService(POWER_SERVICE);
         wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK,"com.marianhello.backgroundgeolocation:wakelock");
@@ -681,9 +683,9 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             return super.registerReceiver(receiver, filter, null , mServiceHandler, Context.RECEIVER_EXPORTED);
         } else {
-           return super.registerReceiver(receiver, filter, null, mServiceHandler);
+            return super.registerReceiver(receiver, filter, null, mServiceHandler);
         }
-        
+
     }
 
     @Override
@@ -739,8 +741,14 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
 
     private BackgroundLocation transformLocation(BackgroundLocation location) {
         if (sLocationTransform != null) {
-            return sLocationTransform.transformLocationBeforeCommit(this, location);
+            location = sLocationTransform.transformLocationBeforeCommit(this, location);
         }
+        // Here we will check the config that geofence is enabled or not and then will check the location
+        // That location is in geofence or outside and will get another location with containing the geofence id and name inside it
+        if(mGeofenceHelper != null){
+            location = mGeofenceHelper.checkGeofence(location);
+        }
+
 
         return location;
     }

@@ -5,6 +5,8 @@ import android.content.Context;
 import com.marianhello.bgloc.data.provider.ContentProviderLocationDAO;
 import com.marianhello.bgloc.data.sqlite.SQLiteLocationDAO;
 import com.marianhello.bgloc.data.sqlite.SQLiteConfigurationDAO;
+import com.wrdhrd.geofence.data.GeofenceDAO;
+import com.wrdhrd.geofence.data.sqlite.SQLiteGeofenceDAO;
 
 public abstract class DAOFactory {
     public static LocationDAO createLocationDAO(Context context) {
@@ -13,5 +15,10 @@ public abstract class DAOFactory {
 
     public static ConfigurationDAO createConfigurationDAO(Context context) {
         return new SQLiteConfigurationDAO(context);
+    }
+
+    public static GeofenceDAO createGeofenceDAO(Context context) {
+        return new SQLiteGeofenceDAO(context) {
+        };
     }
 }

@@ -26,16 +26,21 @@ public class RealTimeHelper {
         activity.runOnUiThread(new Runnable() {
             @Override
             public void run() {
-                RealTime.builder(context)
-                        .withGpsProvider()
-                        .withNtpServer("time.nist.gov")
-                        .withNtpServer("time.google.com")
-                        .withNtpServer("time.windows.com")
-                        .withTimeServer("https://bing.com")
-                        .withTimeServer("https://google.com")
-                        .setLoggingEnabled(BuildConfig.DEBUG)
-                        .setSyncBackoffDelay(2, TimeUnit.HOURS)
-                        .build(date -> Log.d(TAG, "RealTime is initialized, current dateTime: " + date));
+                try {
+                    RealTime.builder(context)
+                            .withGpsProvider()
+                            .withNtpServer("time.nist.gov")
+                            .withNtpServer("time.google.com")
+                            .withNtpServer("time.windows.com")
+                            .withTimeServer("https://bing.com")
+                            .withTimeServer("https://google.com")
+                            .setLoggingEnabled(BuildConfig.DEBUG)
+                            .setSyncBackoffDelay(2, TimeUnit.HOURS)
+                            .build(date -> Log.d(TAG, "RealTime is initialized, current dateTime: " + date));
+                }
+                catch(Exception ignore){
+
+                }
             }
         });
     }

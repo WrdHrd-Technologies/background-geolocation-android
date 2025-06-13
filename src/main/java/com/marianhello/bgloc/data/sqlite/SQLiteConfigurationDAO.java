@@ -54,6 +54,9 @@ public class SQLiteConfigurationDAO implements ConfigurationDAO {
       ConfigurationEntry.COLUMN_NAME_STATIONARY_INTERVAL,
       ConfigurationEntry.COLUMN_NAME_URL,
       ConfigurationEntry.COLUMN_NAME_SYNC_URL,
+      ConfigurationEntry.COLUMN_NAME_GEOFENCE,
+      ConfigurationEntry.COLUMN_NAME_GEOFENCE_URL,
+      ConfigurationEntry.COLUMN_NAME_SYNC_GEOFENCE_URL,
       ConfigurationEntry.COLUMN_NAME_SYNC_THRESHOLD,
       ConfigurationEntry.COLUMN_NAME_HEADERS,
       ConfigurationEntry.COLUMN_NAME_MAX_LOCATIONS,
@@ -121,6 +124,9 @@ public class SQLiteConfigurationDAO implements ConfigurationDAO {
     config.setStationaryInterval(c.getInt(c.getColumnIndex(ConfigurationEntry.COLUMN_NAME_STATIONARY_INTERVAL)));
     config.setUrl(c.getString(c.getColumnIndex(ConfigurationEntry.COLUMN_NAME_URL)));
     config.setSyncUrl(c.getString(c.getColumnIndex(ConfigurationEntry.COLUMN_NAME_SYNC_URL)));
+    config.setGeofence(c.getInt(c.getColumnIndex(ConfigurationEntry.COLUMN_NAME_GEOFENCE)) == 1);
+    config.setGeofenceUrl(c.getString(c.getColumnIndex(ConfigurationEntry.COLUMN_NAME_GEOFENCE_URL)));
+    config.setSyncGeofenceUrl(c.getString(c.getColumnIndex(ConfigurationEntry.COLUMN_NAME_SYNC_GEOFENCE_URL)));
     config.setSyncThreshold(c.getInt(c.getColumnIndex(ConfigurationEntry.COLUMN_NAME_SYNC_THRESHOLD)));
     config.setHttpHeaders(new JSONObject(c.getString(c.getColumnIndex(ConfigurationEntry.COLUMN_NAME_HEADERS))));
     config.setMaxLocations(c.getInt(c.getColumnIndex(ConfigurationEntry.COLUMN_NAME_MAX_LOCATIONS)));

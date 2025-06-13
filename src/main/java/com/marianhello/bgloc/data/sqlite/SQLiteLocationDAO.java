@@ -294,6 +294,9 @@ public class SQLiteLocationDAO implements LocationDAO {
             .append(LocationEntry.COLUMN_NAME_CHARGING_FLAG).append("= ?")
             .append(LocationEntry.COLUMN_NAME_REALTIME).append("= ?")
             .append(LocationEntry.COLUMN_NAME_ELAPSEDREALTIMENANO).append("= ?")
+            .append(LocationEntry.COLUMN_NAME_GEOFENCE_ID).append("= ?")
+            .append(LocationEntry.COLUMN_NAME_GEOFENCE_NAME).append("= ?")
+            .append(LocationEntry.COLUMN_NAME_ACTIVITY).append("= ?")
             .append(" WHERE ").append(LocationEntry._ID)
             .append("= ?")
             .toString();
@@ -320,6 +323,9 @@ public class SQLiteLocationDAO implements LocationDAO {
             location.getIsCharging(),
             location.getRealTime(),
             location.getElapsedRealtimeNanos(),
+            location.getGeofenceId(),
+            location.getGeofenceName(),
+            location.getActivity(),
             locationId
     });
 
@@ -442,6 +448,9 @@ public class SQLiteLocationDAO implements LocationDAO {
     l.setIsCharging(c.getInt((c.getColumnIndex(LocationEntry.COLUMN_NAME_CHARGING_FLAG))) == 1);
     l.setRealTime(c.getInt(c.getColumnIndex(LocationEntry.COLUMN_NAME_REALTIME)));
     l.setElapsedRealtimeNanos(c.getInt(c.getColumnIndex(LocationEntry.COLUMN_NAME_ELAPSEDREALTIMENANO)));
+    l.setGeofenceId(c.getLong(c.getColumnIndex(LocationEntry.COLUMN_NAME_GEOFENCE_ID)));
+    l.setGeofenceName(c.getString(c.getColumnIndex(LocationEntry.COLUMN_NAME_GEOFENCE_NAME)));
+    l.setActivity(c.getString(c.getColumnIndex(LocationEntry.COLUMN_NAME_ACTIVITY)));
 
     return l;
   }
@@ -470,6 +479,9 @@ public class SQLiteLocationDAO implements LocationDAO {
     values.put(LocationEntry.COLUMN_NAME_CHARGING_FLAG, l.getIsCharging() ? 1 : 0);
     values.put(LocationEntry.COLUMN_NAME_REALTIME, l.getRealTime());
     values.put(LocationEntry.COLUMN_NAME_ELAPSEDREALTIMENANO, l.getElapsedRealtimeNanos());
+    values.put(LocationEntry.COLUMN_NAME_GEOFENCE_ID, l.getGeofenceId());
+    values.put(LocationEntry.COLUMN_NAME_GEOFENCE_NAME, l.getGeofenceName());
+    values.put(LocationEntry.COLUMN_NAME_ACTIVITY, l.getActivity());
 
     return values;
   }
@@ -498,7 +510,10 @@ public class SQLiteLocationDAO implements LocationDAO {
             LocationEntry.COLUMN_NAME_BATTERY_LEVEL,
             LocationEntry.COLUMN_NAME_CHARGING_FLAG,
             LocationEntry.COLUMN_NAME_REALTIME,
-            LocationEntry.COLUMN_NAME_ELAPSEDREALTIMENANO
+            LocationEntry.COLUMN_NAME_ELAPSEDREALTIMENANO,
+            LocationEntry.COLUMN_NAME_GEOFENCE_ID,
+            LocationEntry.COLUMN_NAME_GEOFENCE_NAME,
+            LocationEntry.COLUMN_NAME_ACTIVITY
     };
 
     return columns;
