@@ -135,6 +135,7 @@ public class GeofenceHelper {
             location.setGeofenceId(geofence.getId());
         }
         lastGeofence = geofence;
+        this.firstCheck = false;
         return location;
     }
 }
