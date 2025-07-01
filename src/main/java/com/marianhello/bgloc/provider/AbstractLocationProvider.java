@@ -23,10 +23,10 @@ import com.marianhello.bgloc.Config;
 import com.marianhello.bgloc.PluginException;
 import com.marianhello.bgloc.data.BackgroundActivity;
 import com.marianhello.bgloc.data.BackgroundLocation;
+import com.marianhello.bgloc.data.BatteryUtils;
 import com.marianhello.logging.LoggerManager;
 import com.marianhello.utils.ToneGenerator;
 import com.marianhello.utils.ToneGenerator.Tone;
-import com.marianhello.bgloc.data.BatteryInfo;
 import com.wrdhrd.ActivityRecognition.ActivityTransitionService;
 
 import java.lang.reflect.Field;
@@ -148,8 +148,11 @@ public abstract class AbstractLocationProvider implements LocationProvider {
             }
             lastLocation = location;
 
-            BatteryInfo batteryInfo = new BatteryInfo(mContext);
-            BackgroundLocation bgLocation = new BackgroundLocation(PROVIDER_ID, location,batteryInfo);
+            BatteryUtils.BatteryInfo batteryInfo = BatteryUtils.getBatteryStatus(mContext);
+            BackgroundLocation bgLocation = BackgroundLocation.fromLocation(location);
+            bgLocation.setLocationProvider(PROVIDER_ID);
+            bgLocation.setBatteryLevel(batteryInfo.getBatteryPercentage());
+            bgLocation.setIsCharging(batteryInfo.isCharging());
             bgLocation.setMockLocationsEnabled(hasMockLocationsEnabled());
             mDelegate.onLocation(bgLocation);
         }
@@ -164,10 +167,13 @@ public abstract class AbstractLocationProvider implements LocationProvider {
     protected void handleStationary (Location location, float radius) {
         playDebugTone(Tone.LONG_BEEP);
         if (mDelegate != null) {
-            BatteryInfo batteryInfo = new BatteryInfo(mContext);
-            BackgroundLocation bgLocation = new BackgroundLocation(PROVIDER_ID, location,batteryInfo);
-            bgLocation.setRadius(radius);
+            BatteryUtils.BatteryInfo batteryInfo = BatteryUtils.getBatteryStatus(mContext);
+            BackgroundLocation bgLocation = BackgroundLocation.fromLocation(location);
+            bgLocation.setLocationProvider(PROVIDER_ID);
+            bgLocation.setBatteryLevel(batteryInfo.getBatteryPercentage());
+            bgLocation.setIsCharging(batteryInfo.isCharging());
             bgLocation.setMockLocationsEnabled(hasMockLocationsEnabled());
+            bgLocation.setRadius(radius);
             mDelegate.onStationary(bgLocation);
         }
     }
@@ -180,8 +186,11 @@ public abstract class AbstractLocationProvider implements LocationProvider {
     protected void handleStationary (Location location) {
         playDebugTone(Tone.LONG_BEEP);
         if (mDelegate != null) {
-            BatteryInfo batteryInfo = new BatteryInfo(mContext);
-            BackgroundLocation bgLocation = new BackgroundLocation(PROVIDER_ID, location,batteryInfo);
+            BatteryUtils.BatteryInfo batteryInfo = BatteryUtils.getBatteryStatus(mContext);
+            BackgroundLocation bgLocation = BackgroundLocation.fromLocation(location);
+            bgLocation.setLocationProvider(PROVIDER_ID);
+            bgLocation.setBatteryLevel(batteryInfo.getBatteryPercentage());
+            bgLocation.setIsCharging(batteryInfo.isCharging());
             bgLocation.setMockLocationsEnabled(hasMockLocationsEnabled());
             mDelegate.onStationary(bgLocation);
         }

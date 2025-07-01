@@ -21,7 +21,7 @@ public class SQLiteSettingContract {
                 "CREATE TABLE " + SQLiteSettingContract.SettingEntry.TABLE_NAME + " (" +
                         SQLiteSettingContract.SettingEntry._ID + " INTEGER PRIMARY KEY," +
                         SettingEntry.COLUMN_NAME_START + INTEGER_TYPE + COMMA_SEP +
-                        SettingEntry.COLUMN_NAME_UPDATED_AT + INTEGER_TYPE + COMMA_SEP +
+                        SettingEntry.COLUMN_NAME_UPDATED_AT + INTEGER_TYPE +
                         " )";
 
         public static final String SQL_DROP_SETTING_TABLE =

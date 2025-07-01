@@ -23,7 +23,9 @@ public class LocationServiceInfoImpl implements LocationServiceInfo {
 
         try {
             Setting setting = settingDao.retrieveSetting();
-            return setting.isStarted();
+            if(setting != null) {
+                return setting.isStarted();
+            }
         } catch (JSONException ignored) {
 
         }

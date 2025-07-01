@@ -52,40 +52,7 @@ public class BackgroundLocation implements Parcelable {
         this.provider = provider;
     }
 
-    /**
-     * Construct BackgroundLocation by copying properties from android Location.
-     * @param location
-     */
-    @Deprecated
-    public BackgroundLocation(Location location) {
-        this(BackgroundLocation.fromLocation(location));
-    }
 
-    @Deprecated
-    public BackgroundLocation(Integer locationProvider, Location location) {
-        this(location);
-        this.locationProvider = locationProvider;
-    }
-
-    @Deprecated
-    public BackgroundLocation(Integer locationProvider, Location location,BatteryInfo batteryInfo) {
-        this(location);
-        this.locationProvider = locationProvider;
-        this.setBatteryLevel(batteryInfo.getBatteryLevel());
-        this.setIsCharging(batteryInfo.getIsCharging());
-    }
-
-    /**
-     * Construct stationary BackgroundLocation.
-     * @param locationProvider
-     * @param location
-     * @param radius radius of stationary region
-     */
-    @Deprecated
-    public BackgroundLocation(Integer locationProvider, Location location, float radius) {
-        this(locationProvider, location);
-        setRadius(radius);
-    }
 
     /**
      * Construct a new Location object that is copied from an existing one.
