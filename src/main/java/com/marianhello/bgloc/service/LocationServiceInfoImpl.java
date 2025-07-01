@@ -3,6 +3,13 @@ package com.marianhello.bgloc.service;
 import android.app.ActivityManager;
 import android.content.Context;
 
+import com.marianhello.bgloc.Config;
+import com.marianhello.bgloc.Setting;
+import com.marianhello.bgloc.data.DAOFactory;
+import com.marianhello.bgloc.data.SettingDAO;
+
+import org.json.JSONException;
+
 public class LocationServiceInfoImpl implements LocationServiceInfo {
     private Context mContext;
 
@@ -12,10 +19,18 @@ public class LocationServiceInfoImpl implements LocationServiceInfo {
 
     @Override
     public boolean isStarted() {
-        ActivityManager.RunningServiceInfo info = getRunningServiceInfo();
-        if (info != null) {
-            return info.started;
+        SettingDAO settingDao = DAOFactory.createSettingDAO(mContext);
+
+        try {
+            Setting setting = settingDao.retrieveSetting();
+            return setting.isStarted();
+        } catch (JSONException ignored) {
+
         }
+        //ActivityManager.RunningServiceInfo info = getRunningServiceInfo();
+        //if (info != null) {
+        //return info.started;
+        //}
         return false;
     }
 

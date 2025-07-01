@@ -17,6 +17,8 @@ import static com.marianhello.bgloc.data.sqlite.SQLiteLocationContract.LocationE
 import static com.marianhello.bgloc.data.sqlite.SQLiteLocationContract.LocationEntry.SQL_CREATE_LOCATION_TABLE_BATCH_ID_IDX;
 import static com.marianhello.bgloc.data.sqlite.SQLiteLocationContract.LocationEntry.SQL_CREATE_LOCATION_TABLE_TIME_IDX;
 import static com.marianhello.bgloc.data.sqlite.SQLiteLocationContract.LocationEntry.SQL_DROP_LOCATION_TABLE;
+import static com.marianhello.bgloc.data.sqlite.SQLiteSettingContract.SettingEntry.SQL_CREATE_SETTING_TABLE;
+import static com.marianhello.bgloc.data.sqlite.SQLiteSettingContract.SettingEntry.SQL_DROP_SETTING_TABLE;
 
 public class SQLiteOpenHelper extends android.database.sqlite.SQLiteOpenHelper {
     private static final String TAG = SQLiteOpenHelper.class.getName();
@@ -66,6 +68,7 @@ public class SQLiteOpenHelper extends android.database.sqlite.SQLiteOpenHelper {
         execAndLogSql(db, SQL_CREATE_CONFIG_TABLE);
         execAndLogSql(db, SQL_CREATE_LOCATION_TABLE_TIME_IDX);
         execAndLogSql(db, SQL_CREATE_LOCATION_TABLE_BATCH_ID_IDX);
+        execAndLogSql(db, SQL_CREATE_SETTING_TABLE);
     }
 
     @Override
@@ -126,6 +129,8 @@ public class SQLiteOpenHelper extends android.database.sqlite.SQLiteOpenHelper {
                         " ADD COLUMN " + LocationEntry.COLUMN_NAME_REALTIME + INTEGER_TYPE);
                 alterSql.add("ALTER TABLE " + LocationEntry.TABLE_NAME +
                         " ADD COLUMN " + LocationEntry.COLUMN_NAME_ELAPSEDREALTIMENANO + INTEGER_TYPE);
+            case 18:
+                alterSql.add(SQL_CREATE_SETTING_TABLE);
                 break; // DO NOT FORGET TO MOVE DOWN BREAK ON DB UPGRADE!!!
             default:
                 onDowngrade(db, 0, 0);
@@ -142,6 +147,7 @@ public class SQLiteOpenHelper extends android.database.sqlite.SQLiteOpenHelper {
         // we don't support db downgrade yet, instead we drop table and start over
         execAndLogSql(db, SQL_DROP_LOCATION_TABLE);
         execAndLogSql(db, SQL_DROP_CONFIG_TABLE);
+        execAndLogSql(db, SQL_DROP_SETTING_TABLE);
         onCreate(db);
     }
 

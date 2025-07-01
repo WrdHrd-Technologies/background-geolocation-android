@@ -16,6 +16,7 @@ import android.os.Build;
 import android.util.Log;
 import com.marianhello.bgloc.data.ConfigurationDAO;
 import com.marianhello.bgloc.data.DAOFactory;
+import com.marianhello.bgloc.data.SettingDAO;
 import com.marianhello.bgloc.service.LocationServiceImpl;
 import com.marianhello.bgloc.service.LocationServiceIntentBuilder;
 import com.marianhello.utils.RealTimeHelper;
@@ -35,7 +36,9 @@ public class BootCompletedReceiver extends BroadcastReceiver {
         RealTimeHelper.initialize(context);
 
         ConfigurationDAO dao = DAOFactory.createConfigurationDAO(context);
+        SettingDAO settingDao = DAOFactory.createSettingDAO(context);
         Config config = null;
+        Setting setting = null;
 
 
         try {
@@ -44,11 +47,18 @@ public class BootCompletedReceiver extends BroadcastReceiver {
             //noop
         }
 
+        try {
+            setting = settingDao.retrieveSetting();
+        } catch (JSONException e) {
+           setting = Setting.getDefault();
+        }
+
         if (config == null) { return; }
+        if (setting == null) { return; }
 
         Log.d(TAG, "Boot completed " + config.toString());
 
-        if (config.getStartOnBoot()) {
+        if (config.getStartOnBoot() && setting.isStarted()) {
             Log.i(TAG, "Starting service after boot");
             Intent locationServiceIntent = new Intent(context, LocationServiceImpl.class);
             LocationServiceIntentBuilder.Command cmd = new LocationServiceIntentBuilder.Command(0);

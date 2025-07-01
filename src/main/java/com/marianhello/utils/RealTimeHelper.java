@@ -20,25 +20,6 @@ public class RealTimeHelper {
            return new Date();
         }
     }
-    public static void initialize(Context context, Activity activity)
-    {
-
-        activity.runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                RealTime.builder(context)
-                        .withGpsProvider()
-                        .withNtpServer("time.nist.gov")
-                        .withNtpServer("time.google.com")
-                        .withNtpServer("time.windows.com")
-                        .withTimeServer("https://bing.com")
-                        .withTimeServer("https://google.com")
-                        .setLoggingEnabled(BuildConfig.DEBUG)
-                        .setSyncBackoffDelay(2, TimeUnit.HOURS)
-                        .build(date -> Log.d(TAG, "RealTime is initialized, current dateTime: " + date));
-            }
-        });
-    }
 
     public static void initialize(Context context)
     {

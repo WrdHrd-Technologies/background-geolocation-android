@@ -25,6 +25,7 @@ import com.marianhello.bgloc.data.BackgroundLocation;
 import com.marianhello.bgloc.data.ConfigurationDAO;
 import com.marianhello.bgloc.data.DAOFactory;
 import com.marianhello.bgloc.data.LocationDAO;
+import com.marianhello.bgloc.data.SettingDAO;
 import com.marianhello.bgloc.provider.LocationProvider;
 import com.marianhello.bgloc.service.LocationService;
 import com.marianhello.bgloc.service.LocationServiceImpl;
@@ -81,6 +82,7 @@ public class BackgroundGeolocationFacade {
     private boolean mIsPaused = false;
 
     private Config mConfig;
+    private Setting mSetting;
     private final Context mContext;
     private final PluginDelegate mDelegate;
     private final LocationService mService;
@@ -395,6 +397,19 @@ public class BackgroundGeolocationFacade {
         }
     }
 
+    public synchronized void setting(Setting setting) throws PluginException {
+        try
+        {
+            Setting newSetting = Setting.merge(getStoredSetting(), setting);
+            persistSetting(newSetting);
+            logger.debug("Service setting with: {}", newSetting.toString());
+            mSetting = newSetting;
+        } catch (Exception e) {
+            logger.error("Setting error: {}", e.getMessage());
+            throw new PluginException("Setting error", e, PluginException.CONFIGURE_ERROR);
+        }
+    }
+
     public synchronized Config getConfig() {
         if (mConfig != null) {
             return mConfig;
@@ -410,6 +425,21 @@ public class BackgroundGeolocationFacade {
         return mConfig;
     }
 
+    public synchronized Setting getSetting() {
+        if (mSetting != null) {
+            return mSetting;
+        }
+
+        try {
+            mSetting = getStoredSetting();
+        } catch (PluginException e) {
+            logger.error("Error getting stored setting will use default", e.getMessage());
+            mSetting = Setting.getDefault();
+        }
+
+        return mSetting;
+    }
+
     public synchronized Config getStoredConfig() throws PluginException {
         try {
             ConfigurationDAO dao = DAOFactory.createConfigurationDAO(getContext());
@@ -421,6 +451,20 @@ public class BackgroundGeolocationFacade {
         } catch (JSONException e) {
             logger.error("Error getting stored config: {}", e.getMessage());
             throw new PluginException("Error getting stored config", e, PluginException.JSON_ERROR);
+        }
+    }
+
+    public synchronized Setting getStoredSetting() throws PluginException {
+        try {
+            SettingDAO dao = DAOFactory.createSettingDAO(getContext());
+            Setting setting = dao.retrieveSetting();
+            if (setting == null) {
+                setting = Setting.getDefault();
+            }
+            return setting;
+        } catch (JSONException e) {
+            logger.error("Error getting stored Setting: {}", e.getMessage());
+            throw new PluginException("Error getting stored Setting", e, PluginException.JSON_ERROR);
         }
     }
 
@@ -499,6 +543,10 @@ public class BackgroundGeolocationFacade {
     private void persistConfiguration(Config config) throws NullPointerException {
         ConfigurationDAO dao = DAOFactory.createConfigurationDAO(getContext());
         dao.persistConfiguration(config);
+    }
+    private void persistSetting(Setting setting) throws NullPointerException {
+        SettingDAO dao = DAOFactory.createSettingDAO(getContext());
+        dao.persistSetting(setting);
     }
 
     private Context getContext() {
