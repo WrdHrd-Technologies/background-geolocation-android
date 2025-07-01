@@ -38,6 +38,8 @@ import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 
 import com.marianhello.bgloc.Config;
 import com.marianhello.bgloc.ConnectivityListener;
+import com.marianhello.bgloc.Setting;
+import com.marianhello.bgloc.data.SettingDAO;
 import com.marianhello.bgloc.sync.NotificationHelper;
 import com.marianhello.bgloc.PluginException;
 import com.marianhello.bgloc.PostLocationTask;
@@ -114,6 +116,7 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
 
     private ResourceResolver mResolver;
     private Config mConfig;
+    private Setting mSetting;
     private LocationProvider mProvider;
     private Account mSyncAccount;
 
@@ -280,7 +283,8 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
         logger.debug("Task has been removed");
         // workaround for issue #276
         Config config = getConfig();
-        if (config.getStopOnTerminate()) {
+        Setting setting = getSetting();
+        if (config.getStopOnTerminate() || !setting.isStarted()) {
             logger.info("Stopping self");
             stopSelf();
         } else {
@@ -712,6 +716,25 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
 
         mConfig = config;
         return mConfig;
+    }
+
+    public Setting getSetting() {
+        Setting setting = mSetting;
+        if (setting == null) {
+            SettingDAO dao = DAOFactory.createSettingDAO(this);
+            try {
+                setting = dao.retrieveSetting();
+            } catch (JSONException e) {
+                logger.error("Setting exception: {}", e.getMessage());
+            }
+        }
+
+        if (setting == null) {
+            setting = Setting.getDefault();
+        }
+
+        mSetting = setting;
+        return mSetting;
     }
 
     public static void setLocationProviderFactory(LocationProviderFactory factory) {

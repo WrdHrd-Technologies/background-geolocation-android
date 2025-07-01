@@ -310,7 +310,7 @@ public class BackgroundGeolocationFacade {
         unregisterLocationModeChangeReceiver();
         unregisterServiceBroadcast();
 
-        if (getConfig().getStopOnTerminate()) {
+        if (getConfig().getStopOnTerminate() || !getSetting().isStarted()) {
             stopBackgroundService();
         } else {
             mService.startHeadlessTask();
