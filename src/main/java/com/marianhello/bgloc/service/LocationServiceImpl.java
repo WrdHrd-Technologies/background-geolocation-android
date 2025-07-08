@@ -367,6 +367,17 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
             return;
         }
 
+        if (mSetting == null) {
+            logger.warn("Attempt to start unset service. Will use stored or default.");
+            mSetting = getSetting();
+            // TODO: throw JSONException if config cannot be obtained from db
+        }
+
+        if(!mSetting.isStarted()){
+            sIsRunning = false;
+            return;
+        }
+
         if (mConfig == null) {
             logger.warn("Attempt to start unconfigured service. Will use stored or default.");
             mConfig = getConfig();
@@ -468,6 +479,11 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
     }
 
     @Override
+    public void setting(Setting setting) {
+        mSetting = setting;
+    }
+
+    @Override
     public synchronized void configure(Config config) {
         if (mConfig == null) {
             mConfig = config;
@@ -478,6 +494,16 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
         mConfig = config;
 
         mPostLocationTask.setConfig(mConfig);
+
+        if (mSetting == null) {
+            logger.warn("Attempt to start unset service. Will use stored or default.");
+            mSetting = getSetting();
+            // TODO: throw JSONException if config cannot be obtained from db
+        }
+
+        if(!mSetting.isStarted()){
+            sIsRunning = false;
+        }
 
         ThreadUtils.runOnUiThread(new Runnable() {
             @Override

@@ -404,6 +404,7 @@ public class BackgroundGeolocationFacade {
             persistSetting(newSetting);
             logger.debug("Service setting with: {}", newSetting.toString());
             mSetting = newSetting;
+            mService.setting(newSetting);
         } catch (Exception e) {
             logger.error("Setting error: {}", e.getMessage());
             throw new PluginException("Setting error", e, PluginException.CONFIGURE_ERROR);
