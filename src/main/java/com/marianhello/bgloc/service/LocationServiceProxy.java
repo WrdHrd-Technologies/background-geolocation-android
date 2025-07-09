@@ -5,6 +5,7 @@ import android.content.Intent;
 import android.os.Build;
 
 import com.marianhello.bgloc.Config;
+import com.marianhello.bgloc.Setting;
 
 public class LocationServiceProxy implements LocationService, LocationServiceInfo {
     private final Context mContext;
