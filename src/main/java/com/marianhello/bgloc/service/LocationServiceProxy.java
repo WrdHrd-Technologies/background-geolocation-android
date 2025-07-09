@@ -98,6 +98,11 @@ public class LocationServiceProxy implements LocationService, LocationServiceInf
     }
 
     @Override
+    public void setting(Setting setting) {
+
+    }
+
+    @Override
     public void startForeground() {
         if (!isStarted()) { return; }
 
