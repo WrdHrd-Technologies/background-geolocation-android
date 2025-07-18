@@ -131,10 +131,18 @@ public class LocationServiceProxy implements LocationService, LocationServiceInf
     }
 
     private void executeIntentCommand(Intent intent) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            mContext.startForegroundService(intent);
-        } else {
+        try{
             mContext.startService(intent);
+        } catch (IllegalStateException e) {
+            try{
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    mContext.startForegroundService(intent);
+                } else {
+                    mContext.startService(intent);
+                }
+            } catch (Exception ex) {
+                throw new RuntimeException(ex);
+            }
         }
     }
 }
