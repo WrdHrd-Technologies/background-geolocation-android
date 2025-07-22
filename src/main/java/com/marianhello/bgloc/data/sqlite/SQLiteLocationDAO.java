@@ -6,6 +6,7 @@ import android.database.Cursor;
 import android.database.DatabaseUtils;
 import android.database.sqlite.SQLiteDatabase;
 import android.text.TextUtils;
+import android.util.Log;
 
 import com.marianhello.bgloc.data.BackgroundLocation;
 import com.marianhello.bgloc.data.LocationDAO;
@@ -387,6 +388,24 @@ public class SQLiteLocationDAO implements LocationDAO {
   }
 
   /**
+   * Delete all locations before the given timestamp
+   *
+   */
+  public int deleteAllLocationsPermanent(long millisBeforeTimeStamp) {
+    if(millisBeforeTimeStamp < 0){
+      return 0;
+    }
+
+    String whereClause = TextUtils.join("", new String[]{
+            LocationEntry.COLUMN_NAME_REALTIME + " < ?",
+    });
+    String[] whereArgs = {
+            String.valueOf(millisBeforeTimeStamp)
+    };
+    return db.delete(LocationEntry.TABLE_NAME,  whereClause, whereArgs);
+  }
+
+  /**
    * Delete all locations
    *
    * Note: location are not actually deleted only flagged as non valid
@@ -394,7 +413,6 @@ public class SQLiteLocationDAO implements LocationDAO {
   public int deleteAllLocations() {
     ContentValues values = new ContentValues();
     values.put(LocationEntry.COLUMN_NAME_STATUS, BackgroundLocation.DELETED);
-
     return db.update(LocationEntry.TABLE_NAME, values, null, null);
   }
 

@@ -343,6 +343,12 @@ public class BackgroundGeolocationFacade {
         dao.deleteAllLocations();
     }
 
+    public void deleteAllLocationsPermanent(long millisBeforeTimeStamp) {
+        LocationDAO dao = DAOFactory.createLocationDAO(getContext());
+        dao.deleteAllLocationsPermanent(millisBeforeTimeStamp);
+    }
+
+
     public BackgroundLocation getCurrentLocation(int timeout, long maximumAge, boolean enableHighAccuracy) throws PluginException {
         logger.info("Getting current location with timeout:{} maximumAge:{} enableHighAccuracy:{}", timeout, maximumAge, enableHighAccuracy);
 
@@ -388,7 +394,6 @@ public class BackgroundGeolocationFacade {
         {
             Config newConfig = Config.merge(getStoredConfig(), config);
             persistConfiguration(newConfig);
-            logger.debug("Service configured with: {}", newConfig.toString());
             mConfig = newConfig;
             mService.configure(newConfig);
         } catch (Exception e) {
@@ -402,7 +407,6 @@ public class BackgroundGeolocationFacade {
         {
             Setting newSetting = Setting.merge(getStoredSetting(), setting);
             persistSetting(newSetting);
-            logger.debug("Service setting with: {}", newSetting.toString());
             mSetting = newSetting;
             mService.setting(newSetting);
         } catch (Exception e) {

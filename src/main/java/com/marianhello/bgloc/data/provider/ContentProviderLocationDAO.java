@@ -7,6 +7,7 @@ import android.content.Context;
 import android.database.Cursor;
 import android.net.Uri;
 import android.text.TextUtils;
+import android.util.Log;
 
 import com.marianhello.bgloc.ResourceResolver;
 import com.marianhello.bgloc.data.BackgroundLocation;
@@ -372,6 +373,20 @@ public class ContentProviderLocationDAO implements LocationDAO {
     @Override
     public int deleteAllLocations() {
         return mResolver.delete(mContentUri, null, null);
+    }
+
+    @Override
+    public int deleteAllLocationsPermanent(long millisBeforeTimeStamp) {
+        if(millisBeforeTimeStamp < 0){
+            return 0;
+        }
+        String whereClause = TextUtils.join("", new String[]{
+                SQLiteLocationContract.LocationEntry.COLUMN_NAME_REALTIME + " < ?",
+        });
+        String[] whereArgs = {
+                String.valueOf(millisBeforeTimeStamp)
+        };
+        return mResolver.delete(mContentUri, whereClause, whereArgs);
     }
 
     @Override

@@ -17,5 +17,6 @@ public interface LocationDAO {
     void deleteLocationById(long locationId);
     BackgroundLocation deleteFirstUnpostedLocation();
     int deleteAllLocations();
+    int deleteAllLocationsPermanent(long millisBeforeTimeStamp);
     int deleteUnpostedLocations();
 }
