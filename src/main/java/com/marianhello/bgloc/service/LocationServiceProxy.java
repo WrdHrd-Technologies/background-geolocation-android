@@ -141,8 +141,11 @@ public class LocationServiceProxy implements LocationService, LocationServiceInf
                     mContext.startService(intent);
                 }
             } catch (Exception ex) {
-                throw new RuntimeException(ex);
+                
             }
+        }
+        catch(Exception ex){
+            
         }
     }
 }
