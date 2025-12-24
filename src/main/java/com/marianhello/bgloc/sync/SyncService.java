@@ -52,11 +52,14 @@ public class SyncService extends Service {
     }
 
     public static void sync(Account account, String authority, boolean manual) {
+        // This resets the exponential backoff timer for this account/authority
+        ContentResolver.cancelSync(account, authority);
+
         // Pass the settings flags by inserting them in a bundle
         Bundle settingsBundle = new Bundle();
         settingsBundle.putBoolean(ContentResolver.SYNC_EXTRAS_MANUAL, manual);
         settingsBundle.putBoolean(ContentResolver.SYNC_EXTRAS_EXPEDITED, manual);
-        settingsBundle.putBoolean(ContentResolver.SYNC_EXTRAS_DO_NOT_RETRY, false);
+        //settingsBundle.putBoolean(ContentResolver.SYNC_EXTRAS_DO_NOT_RETRY, false);
         settingsBundle.putBoolean(ContentResolver.SYNC_EXTRAS_UPLOAD, true);
 
         /*

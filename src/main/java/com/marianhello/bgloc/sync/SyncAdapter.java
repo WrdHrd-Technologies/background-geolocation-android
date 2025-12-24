@@ -136,7 +136,8 @@ public class SyncAdapter extends AbstractThreadedSyncAdapter implements HttpPost
             }
         } else {
             logger.warn("Batch sync failed due server error");
-            syncResult.stats.numIoExceptions++;
+            syncResult.delayUntil = 30 * 60; 
+            //syncResult.stats.numIoExceptions++;
         }
     }
 
