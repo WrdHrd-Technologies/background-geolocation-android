@@ -1,4 +1,4 @@
-package com.marianhello.bgloc;
+package com.marianhello.bgloc.service;
 
 import android.app.AlarmManager;
 import android.app.PendingIntent;
@@ -9,8 +9,8 @@ import android.content.IntentFilter;
 import android.os.Build;
 import com.marianhello.logging.LoggerManager;
 
-public class HeartbeatManager {
-    private static final String ACTION_HEARTBEAT = "com.marianhello.bgloc.ACTION_HEARTBEAT";
+class HeartbeatManager {
+    private static final String ACTION_HEARTBEAT = "com.marianhello.bgloc.service.ACTION_HEARTBEAT";
     private final Context mContext;
     private final AlarmManager mAlarmManager;
     private PendingIntent mHeartbeatIntent;
@@ -79,12 +79,23 @@ public class HeartbeatManager {
 
         long triggerAtMillis = System.currentTimeMillis() + mIntervalMillis;
 
-        // Wake the CPU even in Doze mode
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            mAlarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMillis, mHeartbeatIntent);
-        } else {
-            mAlarmManager.setExact(AlarmManager.RTC_WAKEUP, triggerAtMillis, mHeartbeatIntent);
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                mAlarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMillis, mHeartbeatIntent);
+            } else {
+                mAlarmManager.set(AlarmManager.RTC_WAKEUP, triggerAtMillis, mHeartbeatIntent);
+            }
+            logger.debug("Inexact AlarmManager successfully armed for heartbeat.");
+        } catch (Exception e) {
+            logger.error("Failed to schedule heartbeat.", e);
         }
+
+        // // Wake the CPU even in Doze mode
+        // if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+        //     mAlarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMillis, mHeartbeatIntent);
+        // } else {
+        //     mAlarmManager.setExact(AlarmManager.RTC_WAKEUP, triggerAtMillis, mHeartbeatIntent);
+        // }
     }
 
     private final BroadcastReceiver heartbeatReceiver = new BroadcastReceiver() {
@@ -93,7 +104,7 @@ public class HeartbeatManager {
             logger.debug("Heartbeat fired!");
             
             Intent serviceIntent = new Intent(context, com.marianhello.bgloc.service.LocationServiceImpl.class);
-            serviceIntent.putExtra("command", com.marianhello.bgloc.service.LocationServiceIntentBuilder.CommandId.CUSTOM_HEARTBEAT_PING); // You will add this ID
+            serviceIntent.putExtra("command", CommandId.HEARTBEAT_PING);
             
             try {
                 context.startService(serviceIntent);

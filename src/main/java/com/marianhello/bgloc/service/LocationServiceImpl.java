@@ -138,6 +138,7 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
     private static LocationProviderFactory sLocationProviderFactory;
     private PowerManager.WakeLock wakeLock;                 // PARTIAL_WAKELOCK
     private BackgroundLocation mLastKnownLocation = null;
+    private HeartbeatManager heartbeatManager = null;
 
     private class ServiceHandler extends Handler {
         public ServiceHandler(Looper looper) {
@@ -188,6 +189,9 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
         UncaughtExceptionLogger.register(this);
 
         logger = LoggerManager.getLogger(LocationServiceImpl.class);
+
+        this.heartbeatManager = new HeartbeatManager(this);
+
         logger.info("Creating LocationServiceImpl");
 
         mServiceId = System.currentTimeMillis();
@@ -255,10 +259,16 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
             logger.info("WAKELOCK released");
         }
 
+        if (this.heartbeatManager != null) {
+            this.heartbeatManager.destroy();
+            this.heartbeatManager = null; // Drop the reference
+        }
+
         // workaround for issue #276
         if (mProvider != null) {
             mProvider.onDestroy();
         }
+
 
         if (mHandlerThread != null) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR2) {
@@ -270,10 +280,6 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
 
         if (mPostLocationTask != null) {
             mPostLocationTask.shutdown();
-        }
-
-        if (this.heartbeatManager != null) {
-            this.heartbeatManager.destroy(); 
         }
 
 
@@ -521,6 +527,10 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
     public synchronized void stop() {
         if (!sIsRunning) {
             return;
+        }
+
+        if (this.heartbeatManager != null) {
+            this.heartbeatManager.stop();
         }
 
         if (mProvider != null) {
@@ -935,7 +945,7 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
 
         if (heartbeatTarget != null) {
             logger.debug("Posting heartbeat location ping.");
-            BackgroundLocation ping = BackgroundLocation.fromLocation(heartbeatTarget); 
+            BackgroundLocation ping = new BackgroundLocation(heartbeatTarget);
             ping.setTime(System.currentTimeMillis()); 
             mPostLocationTask.add(ping); 
         } else {

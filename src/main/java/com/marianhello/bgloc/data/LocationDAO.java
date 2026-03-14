@@ -19,4 +19,5 @@ public interface LocationDAO {
     int deleteAllLocations();
     int deleteAllLocationsPermanent(long millisBeforeTimeStamp);
     int deleteUnpostedLocations();
+    BackgroundLocation getValidLatestLocation();
 }

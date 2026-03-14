@@ -110,16 +110,20 @@ public class ContentProviderLocationDAO implements LocationDAO {
     }
 
     public int getLocationsCount() {
-        Cursor cursor = mResolver.query(
-                mContentUri,
-                null,
-                null,
-                null,
-                ""
-        );
+        String[] projection = { "count(*)" };
 
-        int count = cursor.getCount();
-        cursor.close();
+        Cursor cursor = null;
+        int count = 0;
+        try {
+            cursor = mResolver.query(mContentUri, projection, null, null, null);
+            if (cursor != null && cursor.moveToFirst()) {
+                count = cursor.getInt(0);
+            }
+        } finally {
+            if (cursor != null) {
+                cursor.close();
+            }
+        }
         return count;
     }
 
@@ -203,15 +207,20 @@ public class ContentProviderLocationDAO implements LocationDAO {
         String whereClause = SQLiteLocationContract.LocationEntry.COLUMN_NAME_STATUS + " = ?";
         String[] whereArgs = { String.valueOf(BackgroundLocation.POST_PENDING) };
 
-        Cursor cursor = mResolver.query(
-                mContentUri,
-                null,
-                whereClause,
-                whereArgs,
-                null);
+        String[] projection = { "count(*)" };
 
-        int count = cursor.getCount();
-        cursor.close();
+        Cursor cursor = null;
+        int count = 0;
+        try {
+            cursor = mResolver.query(mContentUri, projection, whereClause, whereArgs, null);
+            if (cursor != null && cursor.moveToFirst()) {
+                count = cursor.getInt(0);
+            }
+        } finally {
+            if (cursor != null) {
+                cursor.close();
+            }
+        }
         return count;
     }
 
@@ -227,15 +236,20 @@ public class ContentProviderLocationDAO implements LocationDAO {
                 String.valueOf(millisSinceLastBatch)
         };
 
-        Cursor cursor = mResolver.query(
-                mContentUri,
-                null,
-                whereClause,
-                whereArgs,
-                null);
+        String[] projection = { "count(*)" };
 
-        int count = cursor.getCount();
-        cursor.close();
+        Cursor cursor = null;
+        int count = 0;
+        try {
+            cursor = mResolver.query(mContentUri, projection, whereClause, whereArgs, null);
+            if (cursor != null && cursor.moveToFirst()) {
+                count = cursor.getInt(0);
+            }
+        } finally {
+            if (cursor != null) {
+                cursor.close();
+            }
+        }
         return count;
     }
 
@@ -398,5 +412,38 @@ public class ContentProviderLocationDAO implements LocationDAO {
         String[] whereArgs = { String.valueOf(BackgroundLocation.POST_PENDING) };
 
         return mResolver.update(mContentUri, values, whereClause, whereArgs);
+    }
+
+    @Override
+    public BackgroundLocation getValidLatestLocation() {
+        String selection = LocationEntry.COLUMN_NAME_STATUS + " <> ?";
+        String[] selectionArgs = { String.valueOf(BackgroundLocation.DELETED) };
+
+        // Push the sort and limit directly to the database engine
+        String sortOrder = LocationEntry.COLUMN_NAME_TIME + " DESC LIMIT 1";
+
+        BackgroundLocation location = null;
+        Cursor cursor = null;
+        try {
+            cursor = mResolver.query(
+                    mContentUri,
+                    null, // It's only 1 row, so full projection is acceptable here
+                    selection,
+                    selectionArgs,
+                    sortOrder
+            );
+
+            if (cursor != null && cursor.moveToFirst()) {
+                location = BackgroundLocation.fromCursor(cursor);
+            }
+        } catch (Exception e) {
+            logger.error("Failed to retrieve latest valid location from ContentProvider", e);
+        } finally {
+            if (cursor != null) {
+                cursor.close();
+            }
+        }
+
+        return location;
     }
 }

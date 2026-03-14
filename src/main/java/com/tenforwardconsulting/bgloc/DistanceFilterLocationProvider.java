@@ -446,8 +446,6 @@ public class DistanceFilterLocationProvider extends AbstractLocationProvider imp
 
         // TODO http://www.cse.buffalo.edu/~demirbas/publications/proximity.pdf
         // determine if we're almost out of stationary-distance and increase monitoring-rate.
-        logger.info("Distance from stationary location: {}", distance);
-        logger.info("Distance interval: {}", heartbeatInterval);
         if (distance > stationaryRadius) {
             onExitStationaryRegion(location);
         } else if (distance > 0) {
