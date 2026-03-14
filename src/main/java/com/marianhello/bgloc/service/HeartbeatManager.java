@@ -92,7 +92,7 @@ class HeartbeatManager {
 
         // // Wake the CPU even in Doze mode
         // if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-        //     mAlarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMillis, mHeartbeatIntent);
+        //     mAlarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, ]triggerAtMillis, mHeartbeatIntent);
         // } else {
         //     mAlarmManager.setExact(AlarmManager.RTC_WAKEUP, triggerAtMillis, mHeartbeatIntent);
         // }

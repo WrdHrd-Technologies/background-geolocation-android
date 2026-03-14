@@ -948,6 +948,15 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
             BackgroundLocation ping = new BackgroundLocation(heartbeatTarget);
             ping.setTime(System.currentTimeMillis()); 
             mPostLocationTask.add(ping); 
+
+            Config config = getConfig();
+            if (config != null && config.hasValidSyncUrl()) {
+                logger.info("Heartbeat bypass: Forcing immediate sync to server.");
+                
+                // The 'true' flag forces an expedited, manual sync, 
+                // ignoring standard OS backoff delays.
+                SyncService.sync(mSyncAccount,mResolver.getAuthority(), true);
+            }
         } else {
             logger.warn("Heartbeat fired but no previous location exists to send.");
         }
