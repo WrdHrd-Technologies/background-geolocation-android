@@ -74,11 +74,15 @@ public class LocationServiceProxy implements LocationService, LocationServiceInf
 
     @Override
     public void startForegroundService() {
-        Intent intent = mIntentBuilder.setCommand(CommandId.START_FOREGROUND_SERVICE).build();
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            mContext.startForegroundService(intent);
-        } else {
-            mContext.startService(intent);
+       Intent intent = mIntentBuilder.setCommand(CommandId.START_FOREGROUND_SERVICE).build();
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                mContext.startForegroundService(intent);
+            } else {
+                mContext.startService(intent);
+            }
+        } catch (Exception e) {
+             android.util.Log.e("LocationServiceProxy", "Failed to start foreground service", e);
         }
     }
 
@@ -131,21 +135,34 @@ public class LocationServiceProxy implements LocationService, LocationServiceInf
     }
 
     private void executeIntentCommand(Intent intent) {
-        try{
+        try {
             mContext.startService(intent);
         } catch (IllegalStateException e) {
-            try{
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    mContext.startForegroundService(intent);
-                } else {
-                    mContext.startService(intent);
-                }
-            } catch (Exception ex) {
-                
-            }
-        }
-        catch(Exception ex){
-            
+            // The app is in the background and not allowed to start a background service.
+            // DO NOT call startForegroundService here.
+            // Log this failure. You are trying to send a command while the app is backgrounded.
+            android.util.Log.e("LocationServiceProxy", "Cannot dispatch command in background: " + intent.getAction(), e);
+        } catch (Exception ex) {
+            android.util.Log.e("LocationServiceProxy", "Unexpected error dispatching command", ex);
         }
     }
+
+    // private void executeIntentCommand(Intent intent) {
+    //     try{
+    //         mContext.startService(intent);
+    //     } catch (IllegalStateException e) {
+    //         try{
+    //             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+    //                 mContext.startForegroundService(intent);
+    //             } else {
+    //                 mContext.startService(intent);
+    //             }
+    //         } catch (Exception ex) {
+                
+    //         }
+    //     }
+    //     catch(Exception ex){
+            
+    //     }
+    // }
 }

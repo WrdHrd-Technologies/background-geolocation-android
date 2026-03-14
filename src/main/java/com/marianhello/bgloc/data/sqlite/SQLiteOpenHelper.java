@@ -19,11 +19,12 @@ import static com.marianhello.bgloc.data.sqlite.SQLiteLocationContract.LocationE
 import static com.marianhello.bgloc.data.sqlite.SQLiteLocationContract.LocationEntry.SQL_DROP_LOCATION_TABLE;
 import static com.marianhello.bgloc.data.sqlite.SQLiteSettingContract.SettingEntry.SQL_CREATE_SETTING_TABLE;
 import static com.marianhello.bgloc.data.sqlite.SQLiteSettingContract.SettingEntry.SQL_DROP_SETTING_TABLE;
+import static com.marianhello.bgloc.data.sqlite.SQLiteLocationContract.LocationEntry.SQL_CREATE_LOCATION_TABLE_STATUS_TIME_IDX;
 
 public class SQLiteOpenHelper extends android.database.sqlite.SQLiteOpenHelper {
     private static final String TAG = SQLiteOpenHelper.class.getName();
     public static final String SQLITE_DATABASE_NAME = "cordova_bg_geolocation.db";
-    public static final int DATABASE_VERSION = 19;
+    public static final int DATABASE_VERSION = 20;
 
     public static final String TEXT_TYPE = " TEXT";
     public static final String INTEGER_TYPE = " INTEGER";
@@ -68,6 +69,7 @@ public class SQLiteOpenHelper extends android.database.sqlite.SQLiteOpenHelper {
         execAndLogSql(db, SQL_CREATE_CONFIG_TABLE);
         execAndLogSql(db, SQL_CREATE_LOCATION_TABLE_TIME_IDX);
         execAndLogSql(db, SQL_CREATE_LOCATION_TABLE_BATCH_ID_IDX);
+        execAndLogSql(db, SQL_CREATE_LOCATION_TABLE_STATUS_TIME_IDX);
         execAndLogSql(db, SQL_CREATE_SETTING_TABLE);
     }
 
@@ -131,15 +133,31 @@ public class SQLiteOpenHelper extends android.database.sqlite.SQLiteOpenHelper {
                         " ADD COLUMN " + LocationEntry.COLUMN_NAME_ELAPSEDREALTIMENANO + INTEGER_TYPE);
             case 18:
                 alterSql.add(SQL_CREATE_SETTING_TABLE);
+            case 19: 
+                alterSql.add(SQL_CREATE_LOCATION_TABLE_STATUS_TIME_IDX);
                 break; // DO NOT FORGET TO MOVE DOWN BREAK ON DB UPGRADE!!!
             default:
                 onDowngrade(db, 0, 0);
                 return;
         }
 
-        for (String sql : alterSql) {
-            execAndLogSql(db, sql);
+        db.beginTransaction();
+        try {
+            for (String sql : alterSql) {
+                Log.d(TAG, sql);
+                db.execSQL(sql); 
+            }
+            db.setTransactionSuccessful();
+        } catch (SQLException e) {
+            Log.e(TAG, "FATAL: Database upgrade failed. Rolling back.", e);
+            throw e; 
+        } finally {
+            db.endTransaction();
         }
+
+        // for (String sql : alterSql) {
+        //     execAndLogSql(db, sql);
+        // }
     }
 
     @Override

@@ -68,33 +68,54 @@ public class PostLocationTask {
     }
 
     public void clearQueue() {
-        mExecutor.execute(new Runnable() {
-            @Override
-            public void run() {
-                mLocationDAO.deleteUnpostedLocations();
-            }
-        });
+        // mExecutor.execute(new Runnable() {
+        //     @Override
+        //     public void run() {
+        //         mLocationDAO.deleteUnpostedLocations();
+        //     }
+        // });
     }
 
     public void add(final BackgroundLocation location) {
         if (mConfig == null) {
-            logger.warn("PostLocationTask has no config. Did you called setConfig? Skipping location.");
+            logger.warn("PostLocationTask has no config. Skipping location.");
             return;
         }
-
-        long locationId = mLocationDAO.persistLocation(location);
-        location.setLocationId(locationId);
 
         try {
             mExecutor.execute(new Runnable() {
                 @Override
                 public void run() {
+                    long locationId = mLocationDAO.persistLocation(location);
+                    location.setLocationId(locationId);
+                    
                     post(location);
                 }
             });
         } catch (RejectedExecutionException ex) {
-            mLocationDAO.updateLocationForSync(locationId);
+            // Executor is shutting down. We can't save this location safely here 
+            // without blocking the main thread. Log it and drop it.
+            logger.error("Executor rejected location, cannot persist.", ex);
         }
+
+        // if (mConfig == null) {
+        //     logger.warn("PostLocationTask has no config. Did you called setConfig? Skipping location.");
+        //     return;
+        // }
+
+        // long locationId = mLocationDAO.persistLocation(location);
+        // location.setLocationId(locationId);
+
+        // try {
+        //     mExecutor.execute(new Runnable() {
+        //         @Override
+        //         public void run() {
+        //             post(location);
+        //         }
+        //     });
+        // } catch (RejectedExecutionException ex) {
+        //     mLocationDAO.updateLocationForSync(locationId);
+        // }
     }
 
     public void shutdown() {
@@ -106,7 +127,7 @@ public class PostLocationTask {
         try {
             if (!mExecutor.awaitTermination(waitSeconds, TimeUnit.SECONDS)) {
                 mExecutor.shutdownNow();
-                mLocationDAO.deleteUnpostedLocations();
+                //mLocationDAO.deleteUnpostedLocations();
             }
         } catch (InterruptedException e) {
             mExecutor.shutdownNow();

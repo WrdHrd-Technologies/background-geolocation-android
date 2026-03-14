@@ -293,26 +293,59 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
         super.onTaskRemoved(rootIntent);
     }
 
+    private void promoteToForegroundSynchronously() {
+        if (mIsInForeground) return;
+
+        try {
+            // Use cached config or fast default. DO NOT hit the DAO here.
+            Config fastConfig = (mConfig != null) ? mConfig : Config.getDefault();
+            
+            Notification notification = new NotificationHelper.NotificationFactory(this).getNotification(
+                    fastConfig.getNotificationTitle(),
+                    fastConfig.getNotificationText(),
+                    fastConfig.getLargeNotificationIcon(),
+                    fastConfig.getSmallNotificationIcon(),
+                    fastConfig.getNotificationIconColor());
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                super.startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION);
+            } else {
+                super.startForeground(NOTIFICATION_ID, notification);
+            }
+            mIsInForeground = true;
+            logger.info("Synchronous foreground promotion successful.");
+        } catch (Exception e) {
+            logger.error("Failed synchronous foreground promotion", e);
+        }
+    }
+
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         if (intent == null || !containsCommand(intent)) {
-            // when service was killed and restarted we will restart service
+            // CRITICAL: If the OS restarts the service, it passes a null intent.
+            // You MUST promote it immediately, or it gets killed again.
+            promoteToForegroundSynchronously();
             start();
             return START_STICKY;
         }
 
-        boolean containsCommand = containsCommand(intent);
+        LocationServiceIntentBuilder.Command cmd = getCommand(intent);
+        int commandId = cmd.getId();
+
         logger.debug(
-                String.format("Service in [%s] state. cmdId: [%s]. startId: [%d]",
+                String.format("Service in [%s] state. cmdId: [%d]. startId: [%d]",
                         sIsRunning ? "STARTED" : "NOT STARTED",
-                        containsCommand ? getCommand(intent).getId() : "N/A",
+                        commandId,
                         startId)
         );
 
-        if (containsCommand) {
-            LocationServiceIntentBuilder.Command cmd = getCommand(intent);
-            processCommand(cmd.getId(), cmd.getArgument());
+        // FULFILL CONTRACT IMMEDIATELY - NO DB READS ALLOWED HERE
+        if (commandId == CommandId.START_FOREGROUND_SERVICE || commandId == CommandId.START_FOREGROUND) {
+            promoteToForegroundSynchronously();
         }
+
+        // Execute your heavy setup and routing afterwards
+        processCommand(commandId, cmd.getArgument());
 
         if (containsMessage(intent)) {
             processMessage(getMessage(intent));
@@ -320,6 +353,34 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
 
         return START_STICKY;
     }
+
+    // @Override
+    // public int onStartCommand(Intent intent, int flags, int startId) {
+    //     if (intent == null || !containsCommand(intent)) {
+    //         // when service was killed and restarted we will restart service
+    //         start();
+    //         return START_STICKY;
+    //     }
+
+    //     boolean containsCommand = containsCommand(intent);
+    //     logger.debug(
+    //             String.format("Service in [%s] state. cmdId: [%s]. startId: [%d]",
+    //                     sIsRunning ? "STARTED" : "NOT STARTED",
+    //                     containsCommand ? getCommand(intent).getId() : "N/A",
+    //                     startId)
+    //     );
+
+    //     if (containsCommand) {
+    //         LocationServiceIntentBuilder.Command cmd = getCommand(intent);
+    //         processCommand(cmd.getId(), cmd.getArgument());
+    //     }
+
+    //     if (containsMessage(intent)) {
+    //         processMessage(getMessage(intent));
+    //     }
+
+    //     return START_STICKY;
+    // }
 
     private void processMessage(String message) {
         // currently we do not process any message
@@ -390,19 +451,24 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
         mPostLocationTask.clearQueue();
 
         LocationProviderFactory spf = sLocationProviderFactory != null
-                ? sLocationProviderFactory : new LocationProviderFactory(this);
+            ? sLocationProviderFactory : new LocationProviderFactory(this);
         mProvider = spf.getInstance(mConfig.getLocationProvider());
         mProvider.setDelegate(this);
         mProvider.onCreate();
         mProvider.onConfigure(mConfig);
 
         sIsRunning = true;
-        ThreadUtils.runOnUiThreadBlocking(new Runnable() {
+
+        // SHIFT HEAVY LIFTING TO THE BACKGROUND THREAD
+        mServiceHandler.post(new Runnable() {
             @Override
             public void run() {
-                mProvider.onStart();
-                if (mConfig.getStartForeground()) {
-                    startForeground();
+                try {
+                    mProvider.onStart();
+                    logger.info("Location provider started successfully on background thread.");
+                } catch (Exception e) {
+                    logger.error("Failed to start location provider", e);
+                   // Handle provider failure gracefully, notify UI if necessary
                 }
             }
         });
@@ -411,12 +477,36 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
         bundle.putInt("action", MSG_ON_SERVICE_STARTED);
         bundle.putLong("serviceId", mServiceId);
         broadcastMessage(bundle);
+
+        // LocationProviderFactory spf = sLocationProviderFactory != null
+        //         ? sLocationProviderFactory : new LocationProviderFactory(this);
+        // mProvider = spf.getInstance(mConfig.getLocationProvider());
+        // mProvider.setDelegate(this);
+        // mProvider.onCreate();
+        // mProvider.onConfigure(mConfig);
+
+        // sIsRunning = true;
+        // ThreadUtils.runOnUiThreadBlocking(new Runnable() {
+        //     @Override
+        //     public void run() {
+        //         mProvider.onStart();
+        //         // if (mConfig.getStartForeground()) {
+        //         //     startForeground();
+        //         // }
+        //     }
+        // });
+
+        // Bundle bundle = new Bundle();
+        // bundle.putInt("action", MSG_ON_SERVICE_STARTED);
+        // bundle.putLong("serviceId", mServiceId);
+        // broadcastMessage(bundle);
     }
 
     @Override
     public synchronized void startForegroundService() {
         start();
-        startForeground();
+        // start();
+        // startForeground();
     }
 
     @Override
@@ -581,12 +671,19 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
             return;
         }
 
-        ThreadUtils.runOnUiThread(new Runnable() {
+        mServiceHandler.post(new Runnable() {
             @Override
             public void run() {
                 mProvider.onCommand(command, arg1);
             }
         });
+
+        // ThreadUtils.runOnUiThread(new Runnable() {
+        //     @Override
+        //     public void run() {
+        //         mProvider.onCommand(command, arg1);
+        //     }
+        // });
     }
 
     @Override

@@ -75,7 +75,10 @@ public final class SQLiteLocationContract {
 
         public static final String SQL_CREATE_LOCATION_TABLE_BATCH_ID_IDX =
                 "CREATE INDEX batch_id_idx ON " + LocationEntry.TABLE_NAME + " (" + LocationEntry.COLUMN_NAME_BATCH_START_MILLIS + ")";
-
+        
+        public static final String SQL_CREATE_LOCATION_TABLE_STATUS_TIME_IDX =
+                "CREATE INDEX status_time_idx ON " + LocationEntry.TABLE_NAME + 
+                " (" + LocationEntry.COLUMN_NAME_STATUS + ", " + LocationEntry.COLUMN_NAME_TIME + ")";
         /**
          * The directory base-path
          */

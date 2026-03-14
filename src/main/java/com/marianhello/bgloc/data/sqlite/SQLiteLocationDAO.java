@@ -39,7 +39,7 @@ public class SQLiteLocationDAO implements LocationDAO {
   private Collection<BackgroundLocation> getLocations(String whereClause, String[] whereArgs) {
     Collection<BackgroundLocation> locations = new ArrayList<BackgroundLocation>();
 
-    String[] columns = queryColumns();
+    String[] columns = LocationEntry.PROJECTION_ALL;
     String groupBy = null;
     String having = null;
     String orderBy = LocationEntry.COLUMN_NAME_TIME + " ASC";
@@ -78,7 +78,7 @@ public class SQLiteLocationDAO implements LocationDAO {
   }
 
   public BackgroundLocation getLocationById(long id) {
-    String[] columns = queryColumns();
+    String[] columns = LocationEntry.PROJECTION_ALL;
     String whereClause = LocationEntry._ID + " = ?";
     String[] whereArgs = { String.valueOf(id) };
 
@@ -110,33 +110,23 @@ public class SQLiteLocationDAO implements LocationDAO {
   }
 
   public BackgroundLocation getFirstUnpostedLocation() {
-    SqlSelectStatement subsql = new SqlSelectStatement();
-    subsql.column(new SqlExpression(String.format("MIN(%s)", LocationEntry._ID)), LocationEntry._ID);
-    subsql.from(LocationEntry.TABLE_NAME);
-    subsql.where(LocationEntry.COLUMN_NAME_STATUS, SqlExpression.SqlOperatorEqualTo, BackgroundLocation.POST_PENDING);
-    subsql.orderBy(LocationEntry.COLUMN_NAME_TIME);
-
-    SqlSelectStatement sql = new SqlSelectStatement();
-    sql.columns(queryColumns());
-    sql.from(LocationEntry.TABLE_NAME);
-    sql.where(LocationEntry._ID, SqlExpression.SqlOperatorEqualTo, subsql);
+    String[] columns = LocationEntry.PROJECTION_ALL;
+    String whereClause = LocationEntry.COLUMN_NAME_STATUS + " = ?";
+    String[] whereArgs = { String.valueOf(BackgroundLocation.POST_PENDING) };
+    String orderBy = LocationEntry.COLUMN_NAME_TIME + " ASC";
+    String limit = "1";
 
     BackgroundLocation location = null;
     Cursor cursor = null;
     try {
-      cursor = db.rawQuery(sql.statement(), new String[]{});
-      while (cursor.moveToNext()) {
-        location = hydrate(cursor);
-        if (!cursor.isLast()) {
-          throw new RuntimeException("Expected single location");
+        cursor = db.query(LocationEntry.TABLE_NAME, columns, whereClause, whereArgs, null, null, orderBy, limit);
+        if (cursor.moveToFirst()) {
+          location = hydrate(cursor); 
         }
-      }
     } finally {
-      if (cursor != null) {
-        cursor.close();
-      }
+      if (cursor != null) cursor.close();
     }
-
+    
     return location;
   }
 
@@ -149,7 +139,7 @@ public class SQLiteLocationDAO implements LocationDAO {
     subsql.orderBy(LocationEntry.COLUMN_NAME_TIME);
 
     SqlSelectStatement sql = new SqlSelectStatement();
-    sql.columns(queryColumns());
+    sql.columns(LocationEntry.PROJECTION_ALL);
     sql.from(LocationEntry.TABLE_NAME);
     sql.where(LocationEntry._ID, SqlExpression.SqlOperatorEqualTo, subsql);
 
@@ -218,118 +208,36 @@ public class SQLiteLocationDAO implements LocationDAO {
    * @return rowId or -1 when error occured
    */
   public long persistLocation(BackgroundLocation location, int maxRows) {
-    if (maxRows == 0) {
-      return -1;
-    }
+    if (maxRows == 0) return -1;
 
-    String sql = null;
-    Boolean shouldVacuum = false;
+        long rowCount = DatabaseUtils.queryNumEntries(db, LocationEntry.TABLE_NAME);
 
-    long rowCount = DatabaseUtils.queryNumEntries(db, LocationEntry.TABLE_NAME);
+        if (rowCount < maxRows) {
+            return persistLocation(location); 
+        }
 
-    if (rowCount < maxRows) {
-      ContentValues values = getContentValues(location);
-      return db.insertOrThrow(LocationEntry.TABLE_NAME, LocationEntry.COLUMN_NAME_NULLABLE, values);
-    }
+        db.beginTransactionNonExclusive();
+        long newRowId = -1;
+        try {
+            String deleteSql = "DELETE FROM " + LocationEntry.TABLE_NAME +
+                    " WHERE " + LocationEntry._ID + " IN " +
+                    "(SELECT " + LocationEntry._ID + " FROM " + LocationEntry.TABLE_NAME +
+                    " ORDER BY " + LocationEntry.COLUMN_NAME_TIME + " ASC " +
+                    " LIMIT ?)";
+            
+            
+            long excess = (rowCount - maxRows) + 1; 
+            db.execSQL(deleteSql, new Object[]{excess});
 
-    db.beginTransactionNonExclusive();
+            ContentValues values = getContentValues(location);
+            newRowId = db.insertOrThrow(LocationEntry.TABLE_NAME, LocationEntry.COLUMN_NAME_NULLABLE, values);
 
-    if (rowCount > maxRows) {
-      sql = new StringBuilder("DELETE FROM ")
-              .append(LocationEntry.TABLE_NAME)
-              .append(" WHERE ").append(LocationEntry._ID)
-              .append(" IN (SELECT ").append(LocationEntry._ID)
-              .append(" FROM ").append(LocationEntry.TABLE_NAME)
-              .append(" ORDER BY ").append(LocationEntry.COLUMN_NAME_TIME)
-              .append(" LIMIT ?)")
-              .toString();
-      db.execSQL(sql, new Object[] {(rowCount - maxRows)});
-      shouldVacuum = true;
-    }
-
-    // get oldest location id to be overwritten
-    Cursor cursor = null;
-    long locationId;
-    try {
-      cursor = db.query(
-              LocationEntry.TABLE_NAME,
-              new String[] { "min(" + LocationEntry._ID + ")" },
-              TextUtils.join("", new String[]{
-                      LocationEntry.COLUMN_NAME_TIME,
-                      "= (SELECT min(",
-                      LocationEntry.COLUMN_NAME_TIME,
-                      ") FROM ",
-                      LocationEntry.TABLE_NAME,
-                      ")"
-              }),
-              null, null, null, null);
-      cursor.moveToFirst();
-      locationId = cursor.getLong(0);
-    } finally {
-      if (cursor != null) {
-        cursor.close();
-      }
-    }
-
-    sql = new StringBuilder("UPDATE ")
-            .append(LocationEntry.TABLE_NAME).append(" SET ")
-            .append(LocationEntry.COLUMN_NAME_PROVIDER).append("= ?,")
-            .append(LocationEntry.COLUMN_NAME_TIME).append("= ?,")
-            .append(LocationEntry.COLUMN_NAME_ACCURACY).append("= ?,")
-            .append(LocationEntry.COLUMN_NAME_SPEED).append("= ?,")
-            .append(LocationEntry.COLUMN_NAME_BEARING).append("= ?,")
-            .append(LocationEntry.COLUMN_NAME_ALTITUDE).append("= ?,")
-            .append(LocationEntry.COLUMN_NAME_RADIUS).append("= ?,")
-            .append(LocationEntry.COLUMN_NAME_LATITUDE).append("= ?,")
-            .append(LocationEntry.COLUMN_NAME_LONGITUDE).append("= ?,")
-            .append(LocationEntry.COLUMN_NAME_HAS_ACCURACY).append("= ?,")
-            .append(LocationEntry.COLUMN_NAME_HAS_SPEED).append("= ?,")
-            .append(LocationEntry.COLUMN_NAME_HAS_BEARING).append("= ?,")
-            .append(LocationEntry.COLUMN_NAME_HAS_ALTITUDE).append("= ?,")
-            .append(LocationEntry.COLUMN_NAME_HAS_RADIUS).append("= ?,")
-            .append(LocationEntry.COLUMN_NAME_LOCATION_PROVIDER).append("= ?,")
-            .append(LocationEntry.COLUMN_NAME_BATCH_START_MILLIS).append("= ?,")
-            .append(LocationEntry.COLUMN_NAME_STATUS).append("= ?,")
-            .append(LocationEntry.COLUMN_NAME_MOCK_FLAGS).append("= ?,")
-            .append(LocationEntry.COLUMN_NAME_BATTERY_LEVEL).append("= ?,")
-            .append(LocationEntry.COLUMN_NAME_CHARGING_FLAG).append("= ?")
-            .append(LocationEntry.COLUMN_NAME_REALTIME).append("= ?")
-            .append(LocationEntry.COLUMN_NAME_ELAPSEDREALTIMENANO).append("= ?")
-            .append(" WHERE ").append(LocationEntry._ID)
-            .append("= ?")
-            .toString();
-    db.execSQL(sql, new Object[] {
-            location.getProvider(),
-            location.getTime(),
-            location.getAccuracy(),
-            location.getSpeed(),
-            location.getBearing(),
-            location.getAltitude(),
-            location.getRadius(),
-            location.getLatitude(),
-            location.getLongitude(),
-            location.hasAccuracy() ? 1 : 0,
-            location.hasSpeed() ? 1 : 0,
-            location.hasBearing() ? 1 : 0,
-            location.hasAltitude() ? 1 : 0,
-            location.hasRadius() ? 1 : 0,
-            location.getLocationProvider(),
-            location.getBatchStartMillis(),
-            location.getStatus(),
-            location.getMockFlags(),
-            location.getBatteryLevel(),
-            location.getIsCharging(),
-            location.getRealTime(),
-            location.getElapsedRealtimeNanos(),
-            locationId
-    });
-
-    db.setTransactionSuccessful();
-    db.endTransaction();
-
-    if (shouldVacuum) { db.execSQL("VACUUM"); }
-
-    return locationId;
+            db.setTransactionSuccessful();
+        } finally {
+            db.endTransaction();
+        }
+        
+        return newRowId;
   }
 
   /**
@@ -432,34 +340,60 @@ public class SQLiteLocationDAO implements LocationDAO {
   }
 
   private BackgroundLocation hydrate(Cursor c) {
-    BackgroundLocation l = new BackgroundLocation(c.getString(c.getColumnIndex(LocationEntry.COLUMN_NAME_PROVIDER)));
-    l.setTime(c.getLong(c.getColumnIndex(LocationEntry.COLUMN_NAME_TIME)));
-    if (c.getInt(c.getColumnIndex(LocationEntry.COLUMN_NAME_HAS_ACCURACY)) == 1) {
-      l.setAccuracy(c.getFloat(c.getColumnIndex(LocationEntry.COLUMN_NAME_ACCURACY)));
-    }
-    if (c.getInt(c.getColumnIndex(LocationEntry.COLUMN_NAME_HAS_SPEED)) == 1) {
-      l.setSpeed(c.getFloat(c.getColumnIndex(LocationEntry.COLUMN_NAME_SPEED)));
-    }
-    if (c.getInt(c.getColumnIndex(LocationEntry.COLUMN_NAME_HAS_BEARING)) == 1) {
-      l.setBearing(c.getFloat(c.getColumnIndex(LocationEntry.COLUMN_NAME_BEARING)));
-    }
-    if (c.getInt(c.getColumnIndex(LocationEntry.COLUMN_NAME_HAS_ALTITUDE)) == 1) {
-      l.setAltitude(c.getDouble(c.getColumnIndex(LocationEntry.COLUMN_NAME_ALTITUDE)));
-    }
-    if (c.getInt(c.getColumnIndex(LocationEntry.COLUMN_NAME_HAS_RADIUS)) == 1) {
-      l.setRadius(c.getFloat(c.getColumnIndex(LocationEntry.COLUMN_NAME_RADIUS)));
-    }
-    l.setLatitude(c.getDouble(c.getColumnIndex(LocationEntry.COLUMN_NAME_LATITUDE)));
-    l.setLongitude(c.getDouble(c.getColumnIndex(LocationEntry.COLUMN_NAME_LONGITUDE)));
-    l.setLocationProvider(c.getInt(c.getColumnIndex(LocationEntry.COLUMN_NAME_LOCATION_PROVIDER)));
-    l.setBatchStartMillis(c.getLong(c.getColumnIndex(LocationEntry.COLUMN_NAME_BATCH_START_MILLIS)));
-    l.setStatus(c.getInt(c.getColumnIndex(LocationEntry.COLUMN_NAME_STATUS)));
-    l.setLocationId(c.getLong(c.getColumnIndex(LocationEntry._ID)));
-    l.setMockFlags(c.getInt((c.getColumnIndex(LocationEntry.COLUMN_NAME_MOCK_FLAGS))));
-    l.setBatteryLevel(c.getInt((c.getColumnIndex(LocationEntry.COLUMN_NAME_BATTERY_LEVEL))));
-    l.setIsCharging(c.getInt((c.getColumnIndex(LocationEntry.COLUMN_NAME_CHARGING_FLAG))) == 1);
-    l.setRealTime(c.getInt(c.getColumnIndex(LocationEntry.COLUMN_NAME_REALTIME)));
-    l.setElapsedRealtimeNanos(c.getInt(c.getColumnIndex(LocationEntry.COLUMN_NAME_ELAPSEDREALTIMENANO)));
+    
+    BackgroundLocation l = new BackgroundLocation(c.getString(14));
+    l.setTime(c.getLong(2));
+    if (c.getInt(9) == 1) l.setAccuracy(c.getFloat(2));
+    if (c.getInt(10) == 1) l.setSpeed(c.getFloat(3));
+    if (c.getInt(11) == 1) l.setBearing(c.getFloat(4));
+    if (c.getInt(12) == 1) l.setAltitude(c.getDouble(5));
+    if (c.getInt(13) == 1) l.setRadius(c.getFloat(8));
+    l.setLatitude(c.getDouble(6));
+    l.setLongitude(c.getDouble(7));
+    l.setLocationProvider(c.getInt(15));
+    l.setStatus(c.getInt(16));
+    l.setBatchStartMillis(c.getLong(17));
+    l.setLocationId(c.getLong(0));
+    l.setMockFlags(c.getInt((18)));
+    l.setBatteryLevel(c.getInt((19)));
+    l.setIsCharging(c.getInt((20)) == 1);
+    l.setRealTime(c.getInt(21));
+    l.setElapsedRealtimeNanos(22);
+    
+
+    // BackgroundLocation l = new BackgroundLocation(c.getString(c.getColumnIndex(LocationEntry.COLUMN_NAME_PROVIDER)));
+    // l.setTime(c.getLong(c.getColumnIndex(LocationEntry.COLUMN_NAME_TIME)));
+    // if (c.getInt(c.getColumnIndex(LocationEntry.COLUMN_NAME_HAS_ACCURACY)) == 1) {
+    //   l.setAccuracy(c.getFloat(c.getColumnIndex(LocationEntry.COLUMN_NAME_ACCURACY)));
+    // }
+
+    // if (c.getInt(c.getColumnIndex(LocationEntry.COLUMN_NAME_HAS_SPEED)) == 1) {
+    //   l.setSpeed(c.getFloat(c.getColumnIndex(LocationEntry.COLUMN_NAME_SPEED)));
+    // }
+
+    // if (c.getInt(c.getColumnIndex(LocationEntry.COLUMN_NAME_HAS_BEARING)) == 1) {
+    //   l.setBearing(c.getFloat(c.getColumnIndex(LocationEntry.COLUMN_NAME_BEARING)));
+    // }
+
+    // if (c.getInt(c.getColumnIndex(LocationEntry.COLUMN_NAME_HAS_ALTITUDE)) == 1) {
+    //   l.setAltitude(c.getDouble(c.getColumnIndex(LocationEntry.COLUMN_NAME_ALTITUDE)));
+    // }
+
+    // if (c.getInt(c.getColumnIndex(LocationEntry.COLUMN_NAME_HAS_RADIUS)) == 1) {
+    //   l.setRadius(c.getFloat(c.getColumnIndex(LocationEntry.COLUMN_NAME_RADIUS)));
+    // }
+
+    // l.setLatitude(c.getDouble(c.getColumnIndex(LocationEntry.COLUMN_NAME_LATITUDE)));
+    // l.setLongitude(c.getDouble(c.getColumnIndex(LocationEntry.COLUMN_NAME_LONGITUDE)));
+    // l.setLocationProvider(c.getInt(c.getColumnIndex(LocationEntry.COLUMN_NAME_LOCATION_PROVIDER)));
+    // l.setBatchStartMillis(c.getLong(c.getColumnIndex(LocationEntry.COLUMN_NAME_BATCH_START_MILLIS)));
+    // l.setStatus(c.getInt(c.getColumnIndex(LocationEntry.COLUMN_NAME_STATUS)));
+    // l.setLocationId(c.getLong(c.getColumnIndex(LocationEntry._ID)));
+    // l.setMockFlags(c.getInt((c.getColumnIndex(LocationEntry.COLUMN_NAME_MOCK_FLAGS))));
+    // l.setBatteryLevel(c.getInt((c.getColumnIndex(LocationEntry.COLUMN_NAME_BATTERY_LEVEL))));
+    // l.setIsCharging(c.getInt((c.getColumnIndex(LocationEntry.COLUMN_NAME_CHARGING_FLAG))) == 1);
+    // l.setRealTime(c.getInt(c.getColumnIndex(LocationEntry.COLUMN_NAME_REALTIME)));
+    // l.setElapsedRealtimeNanos(c.getInt(c.getColumnIndex(LocationEntry.COLUMN_NAME_ELAPSEDREALTIMENANO)));
 
     return l;
   }
@@ -490,35 +424,5 @@ public class SQLiteLocationDAO implements LocationDAO {
     values.put(LocationEntry.COLUMN_NAME_ELAPSEDREALTIMENANO, l.getElapsedRealtimeNanos());
 
     return values;
-  }
-
-  private String[] queryColumns() {
-    String[] columns = {
-            LocationEntry._ID,
-            LocationEntry.COLUMN_NAME_PROVIDER,
-            LocationEntry.COLUMN_NAME_TIME,
-            LocationEntry.COLUMN_NAME_ACCURACY,
-            LocationEntry.COLUMN_NAME_SPEED,
-            LocationEntry.COLUMN_NAME_BEARING,
-            LocationEntry.COLUMN_NAME_ALTITUDE,
-            LocationEntry.COLUMN_NAME_RADIUS,
-            LocationEntry.COLUMN_NAME_LATITUDE,
-            LocationEntry.COLUMN_NAME_LONGITUDE,
-            LocationEntry.COLUMN_NAME_HAS_ACCURACY,
-            LocationEntry.COLUMN_NAME_HAS_SPEED,
-            LocationEntry.COLUMN_NAME_HAS_BEARING,
-            LocationEntry.COLUMN_NAME_HAS_ALTITUDE,
-            LocationEntry.COLUMN_NAME_HAS_RADIUS,
-            LocationEntry.COLUMN_NAME_LOCATION_PROVIDER,
-            LocationEntry.COLUMN_NAME_STATUS,
-            LocationEntry.COLUMN_NAME_BATCH_START_MILLIS,
-            LocationEntry.COLUMN_NAME_MOCK_FLAGS,
-            LocationEntry.COLUMN_NAME_BATTERY_LEVEL,
-            LocationEntry.COLUMN_NAME_CHARGING_FLAG,
-            LocationEntry.COLUMN_NAME_REALTIME,
-            LocationEntry.COLUMN_NAME_ELAPSEDREALTIMENANO
-    };
-
-    return columns;
   }
 }

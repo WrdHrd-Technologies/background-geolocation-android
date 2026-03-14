@@ -44,6 +44,35 @@ public class HttpPostService {
         return mHttpURLConnection;
     }
 
+    private void consumeAndCloseStreams(HttpURLConnection conn) {
+        InputStream is = null;
+        try {
+            is = conn.getInputStream();
+            if (is != null) {
+                while (is.read() != -1) {
+                    
+                }
+            }
+        } catch (IOException e) {
+           
+            InputStream es = conn.getErrorStream();
+            if (es != null) {
+                try {
+                    while (es.read() != -1) {
+                        
+                    }
+                } catch (IOException ex) {
+                } finally {
+                    try { es.close(); } catch (IOException ignored) {}
+                }
+            }
+        } finally {
+            if (is != null) {
+                try { is.close(); } catch (IOException ignored) {}
+            }
+        }
+    }
+
     public int postJSON(JSONObject json, Map headers) throws IOException {
         String jsonString = "null";
         if (json != null) {
@@ -68,19 +97,33 @@ public class HttpPostService {
         }
 
         HttpURLConnection conn = this.openConnection();
+        conn.setConnectTimeout(15000); // 15 seconds
+        conn.setReadTimeout(15000);    // 15 seconds
+
+        byte[] postData = body.getBytes("UTF-8");
+
         conn.setDoOutput(true);
-        conn.setFixedLengthStreamingMode(body.length());
+        conn.setFixedLengthStreamingMode(postData.length);
+        //conn.setFixedLengthStreamingMode(body.length());
         conn.setRequestMethod("POST");
-        conn.setRequestProperty("Content-Type", "application/json");
-        Iterator<Map.Entry<String, String>> it = headers.entrySet().iterator();
-        while (it.hasNext()) {
-            Map.Entry<String, String> pair = it.next();
+        //conn.setRequestProperty("Content-Type", "application/json");
+        conn.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
+
+        // Iterator<Map.Entry<String, String>> it = headers.entrySet().iterator();
+        // while (it.hasNext()) {
+        //     Map.Entry<String, String> pair = it.next();
+        //     conn.setRequestProperty(pair.getKey(), pair.getValue());
+        // }
+
+        for (Map.Entry<String, String> pair : headers.entrySet()) {
             conn.setRequestProperty(pair.getKey(), pair.getValue());
         }
 
         OutputStreamWriter os = null;
         try {
-            os = new OutputStreamWriter(conn.getOutputStream());
+            // os = new OutputStreamWriter(conn.getOutputStream());
+            // os.write(body);
+            os = new OutputStreamWriter(conn.getOutputStream(), "UTF-8");
             os.write(body);
 
         } finally {
@@ -90,25 +133,29 @@ public class HttpPostService {
             }
         }
 
-        return conn.getResponseCode();
+        //return conn.getResponseCode();
+
+        int responseCode = conn.getResponseCode();
+        consumeAndCloseStreams(conn);
+
+        return responseCode;
     }
 
     public int postJSONFile(File file, Map headers, UploadingProgressListener listener) throws IOException {
-        return postJSONFile(new FileInputStream(file), headers, listener);
+        return postJSONFile(new FileInputStream(file), file.length(), headers, listener);
     }
 
-    public int postJSONFile(InputStream stream, Map headers, UploadingProgressListener listener) throws IOException {
+    public int postJSONFile(InputStream stream, long size, Map headers, UploadingProgressListener listener) throws IOException {
         if (headers == null) {
             headers = new HashMap();
         }
 
-        final long streamSize = stream.available();
         HttpURLConnection conn = this.openConnection();
 
         conn.setDoInput(false);
         conn.setDoOutput(true);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
-            conn.setFixedLengthStreamingMode(streamSize);
+            conn.setFixedLengthStreamingMode(size);
         } else {
             conn.setChunkedStreamingMode(0);
         }
@@ -133,7 +180,7 @@ public class HttpPostService {
                 os.write(buffer, 0, bytesRead);
                 os.flush();
                 progress += bytesRead;
-                int percentage = (int) ((progress * 100L) / streamSize);
+                int percentage = (int) ((progress * 100L) / size);
                 if (listener != null) {
                     listener.onProgress(percentage);
                 }
