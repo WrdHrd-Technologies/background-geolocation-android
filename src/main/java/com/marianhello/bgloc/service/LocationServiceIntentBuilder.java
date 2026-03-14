@@ -38,7 +38,8 @@ import java.lang.annotation.RetentionPolicy;
         CommandId.CONFIGURE,
         CommandId.REGISTER_HEADLESS_TASK,
         CommandId.START_HEADLESS_TASK,
-        CommandId.STOP_HEADLESS_TASK
+        CommandId.STOP_HEADLESS_TASK,
+        CommandId.HEARTBEAT_PING
 })
 @Retention(RetentionPolicy.SOURCE)
 @interface CommandId {
@@ -52,6 +53,7 @@ import java.lang.annotation.RetentionPolicy;
     int REGISTER_HEADLESS_TASK = 6;
     int START_HEADLESS_TASK = 7;
     int STOP_HEADLESS_TASK = 8;
+    int HEARTBEAT_PING = 9;
 }
 
 public class LocationServiceIntentBuilder {

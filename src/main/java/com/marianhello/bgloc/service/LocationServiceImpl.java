@@ -137,6 +137,7 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
     private static LocationTransform sLocationTransform;
     private static LocationProviderFactory sLocationProviderFactory;
     private PowerManager.WakeLock wakeLock;                 // PARTIAL_WAKELOCK
+    private BackgroundLocation mLastKnownLocation = null;
 
     private class ServiceHandler extends Handler {
         public ServiceHandler(Looper looper) {
@@ -269,6 +270,10 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
 
         if (mPostLocationTask != null) {
             mPostLocationTask.shutdown();
+        }
+
+        if (this.heartbeatManager != null) {
+            this.heartbeatManager.destroy(); 
         }
 
 
@@ -415,6 +420,9 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
                     break;
                 case CommandId.STOP_HEADLESS_TASK:
                     stopHeadlessTask();
+                    break;
+                case CommandId.HEARTBEAT_PING:
+                    postHeartbeatLocation();
                     break;
             }
         } catch (Exception e) {
@@ -595,6 +603,10 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
             sIsRunning = false;
         }
 
+        if (this.heartbeatManager != null) {
+            this.heartbeatManager.setInterval(config.getHeartbeatInterval());
+        }
+
         ThreadUtils.runOnUiThread(new Runnable() {
             @Override
             public void run() {
@@ -691,6 +703,8 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
         logger.debug("New location {}", location.toString());
 
         location = transformLocation(location);
+        mLastKnownLocation = location;
+        
         if (location == null) {
             logger.debug("Skipping location as requested by the locationTransform");
             return;
@@ -713,6 +727,10 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
             }
         });
 
+        if (this.heartbeatManager != null) {
+            this.heartbeatManager.stop();
+        }
+
         postLocation(location);
     }
 
@@ -721,6 +739,9 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
         logger.debug("New stationary {}", location.toString());
 
         location = transformLocation(location);
+
+        mLastKnownLocation = location; 
+        
         if (location == null) {
             logger.debug("Skipping location as requested by the locationTransform");
             return;
@@ -744,6 +765,14 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
         });
 
         postLocation(location);
+
+        if (this.heartbeatManager != null) {
+            Config config = getConfig();
+            int heartbeatInterval = config.getHeartbeatInterval(); 
+            
+            this.heartbeatManager.setInterval(heartbeatInterval);
+            this.heartbeatManager.start();
+        }
     }
 
     @Override
@@ -893,6 +922,25 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
 
     private void postLocation(BackgroundLocation location) {
         mPostLocationTask.add(location);
+    }
+
+    private void postHeartbeatLocation() {
+        BackgroundLocation heartbeatTarget = mLastKnownLocation;
+
+        // FALLBACK: If the OS killed and restarted our service, RAM is clear.
+        // We must fetch the last known coordinate from SQLite.
+        if (heartbeatTarget == null && mLocationDAO != null) {
+            heartbeatTarget = mLocationDAO.getValidLatestLocation();
+        }
+
+        if (heartbeatTarget != null) {
+            logger.debug("Posting heartbeat location ping.");
+            BackgroundLocation ping = BackgroundLocation.fromLocation(heartbeatTarget); 
+            ping.setTime(System.currentTimeMillis()); 
+            mPostLocationTask.add(ping); 
+        } else {
+            logger.warn("Heartbeat fired but no previous location exists to send.");
+        }
     }
 
     public void handleRequestedAbortUpdates() {

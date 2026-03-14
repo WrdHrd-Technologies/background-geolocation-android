@@ -425,4 +425,29 @@ public class SQLiteLocationDAO implements LocationDAO {
 
     return values;
   }
+
+  public BackgroundLocation getValidLatestLocation() {
+    String[] columns = LocationEntry.PROJECTION_ALL; 
+        
+    String whereClause = LocationEntry.COLUMN_NAME_STATUS + " <> ?";
+    String[] whereArgs = { String.valueOf(BackgroundLocation.DELETED) };
+        
+    String orderBy = LocationEntry.COLUMN_NAME_TIME + " DESC";
+    String limit = "1";
+
+    BackgroundLocation location = null;
+    Cursor cursor = null;
+    try {
+      cursor = db.query(LocationEntry.TABLE_NAME, columns, whereClause, whereArgs, null, null, orderBy, limit);
+      if (cursor.moveToFirst()) {
+        location = hydrate(cursor);
+      }
+    } catch (Exception e) {
+      Log.e("SQLiteLocationDAO", "Failed to retrieve latest valid location", e);
+    } finally {
+      if (cursor != null) cursor.close();
+    }
+
+    return location;
+  }
 }

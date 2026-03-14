@@ -51,7 +51,7 @@ public class SQLiteConfigurationDAO implements ConfigurationDAO {
       ConfigurationEntry.COLUMN_NAME_INTERVAL,
       ConfigurationEntry.COLUMN_NAME_FASTEST_INTERVAL,
       ConfigurationEntry.COLUMN_NAME_ACTIVITIES_INTERVAL,
-      ConfigurationEntry.COLUMN_NAME_STATIONARY_INTERVAL,
+      ConfigurationEntry.COLUMN_NAME_HEARTBEAT_INTERVAL,
       ConfigurationEntry.COLUMN_NAME_URL,
       ConfigurationEntry.COLUMN_NAME_SYNC_URL,
       ConfigurationEntry.COLUMN_NAME_SYNC_THRESHOLD,
@@ -118,7 +118,7 @@ public class SQLiteConfigurationDAO implements ConfigurationDAO {
     config.setInterval(c.getInt(c.getColumnIndex(ConfigurationEntry.COLUMN_NAME_INTERVAL)));
     config.setFastestInterval(c.getInt(c.getColumnIndex(ConfigurationEntry.COLUMN_NAME_FASTEST_INTERVAL)));
     config.setActivitiesInterval(c.getInt(c.getColumnIndex(ConfigurationEntry.COLUMN_NAME_ACTIVITIES_INTERVAL)));
-    config.setStationaryInterval(c.getInt(c.getColumnIndex(ConfigurationEntry.COLUMN_NAME_STATIONARY_INTERVAL)));
+    config.setHeartbeatInterval(c.getInt(c.getColumnIndex(ConfigurationEntry.COLUMN_NAME_HEARTBEAT_INTERVAL)));
     config.setUrl(c.getString(c.getColumnIndex(ConfigurationEntry.COLUMN_NAME_URL)));
     config.setSyncUrl(c.getString(c.getColumnIndex(ConfigurationEntry.COLUMN_NAME_SYNC_URL)));
     config.setSyncThreshold(c.getInt(c.getColumnIndex(ConfigurationEntry.COLUMN_NAME_SYNC_THRESHOLD)));
@@ -150,7 +150,7 @@ public class SQLiteConfigurationDAO implements ConfigurationDAO {
     values.put(ConfigurationEntry.COLUMN_NAME_INTERVAL, config.getInterval());
     values.put(ConfigurationEntry.COLUMN_NAME_FASTEST_INTERVAL, config.getFastestInterval());
     values.put(ConfigurationEntry.COLUMN_NAME_ACTIVITIES_INTERVAL, config.getActivitiesInterval());
-    values.put(ConfigurationEntry.COLUMN_NAME_STATIONARY_INTERVAL, config.getStationaryInterval());
+    values.put(ConfigurationEntry.COLUMN_NAME_HEARTBEAT_INTERVAL, config.getHeartbeatInterval());
     values.put(ConfigurationEntry.COLUMN_NAME_URL, config.getUrl());
     values.put(ConfigurationEntry.COLUMN_NAME_SYNC_URL, config.getSyncUrl());
     values.put(ConfigurationEntry.COLUMN_NAME_SYNC_THRESHOLD, config.getSyncThreshold());

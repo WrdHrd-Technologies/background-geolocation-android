@@ -91,7 +91,7 @@ public class HttpPostService {
         return postJSONString(jsonString, headers);
     }
 
-    public int postJSONString(String body, Map headers) throws IOException {
+    public int postJSONString(String body, Map<String, String> headers) throws IOException {
         if (headers == null) {
             headers = new HashMap();
         }
@@ -115,9 +115,7 @@ public class HttpPostService {
         //     conn.setRequestProperty(pair.getKey(), pair.getValue());
         // }
 
-        for (Map.Entry<String, String> pair : headers.entrySet()) {
-            conn.setRequestProperty(pair.getKey(), pair.getValue());
-        }
+        headers.forEach(conn::setRequestProperty);
 
         OutputStreamWriter os = null;
         try {

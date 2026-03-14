@@ -124,7 +124,7 @@ public class SQLiteOpenHelper extends android.database.sqlite.SQLiteOpenHelper {
                         " ADD COLUMN " + LocationEntry.COLUMN_NAME_CHARGING_FLAG + INTEGER_TYPE);
             case 16:
                 alterSql.add("ALTER TABLE " + ConfigurationEntry.TABLE_NAME +
-                        " ADD COLUMN " + ConfigurationEntry.COLUMN_NAME_STATIONARY_INTERVAL + INTEGER_TYPE);
+                        " ADD COLUMN " + ConfigurationEntry.COLUMN_NAME_HEARTBEAT_INTERVAL + INTEGER_TYPE);
                 
             case 17:
                 alterSql.add("ALTER TABLE " + LocationEntry.TABLE_NAME +
