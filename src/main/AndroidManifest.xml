@@ -51,6 +51,9 @@
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
             </intent-filter>
         </receiver>
+        <receiver android:name="com.marianhello.bgloc.service.GeofenceBroadcastReceiver"
+          android:enabled="true"
+          android:exported="true" />
     </application>
 
     <uses-permission android:name="android.hardware.location" />

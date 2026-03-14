@@ -430,7 +430,7 @@ public class DistanceFilterLocationProvider extends AbstractLocationProvider imp
 
     public void onPollStationaryLocation(Location location) {
         float stationaryRadius = mConfig.getStationaryRadius();
-        long heartbeatInterval = mConfig.getHeartbeatInterval();
+        long heartBeatInterval = mConfig.getHeartbeatInterval();
 
         if (isMoving) {
             return;
@@ -446,12 +446,42 @@ public class DistanceFilterLocationProvider extends AbstractLocationProvider imp
 
         // TODO http://www.cse.buffalo.edu/~demirbas/publications/proximity.pdf
         // determine if we're almost out of stationary-distance and increase monitoring-rate.
+        logger.info("Distance from stationary location: {}", distance);
+        logger.info("Distance interval: {}", heartBeatInterval);
         if (distance > stationaryRadius) {
             onExitStationaryRegion(location);
-        } else if (distance > 0) {
-            startPollingStationaryLocation(STATIONARY_LOCATION_POLLING_INTERVAL_AGGRESSIVE);
-        } else if (stationaryLocationPollingInterval != STATIONARY_LOCATION_POLLING_INTERVAL_LAZY) {
-            startPollingStationaryLocation(STATIONARY_LOCATION_POLLING_INTERVAL_LAZY);
+        } else {
+            long timeDiff = 0;
+            
+            if(lastLocation != null){
+                logger.debug("Last Location Time: {}", lastLocation.getTime());
+            }
+            else{
+                logger.debug("Last Location is null ");
+            }
+
+            if ( heartBeatInterval > 0) {
+                if(lastLocationTime == 0 && stationaryLocation != null){
+                   lastLocationTime = stationaryLocation.getTime();
+                }
+                 
+                if(lastLocationTime != 0){
+                    timeDiff = System.currentTimeMillis() - lastLocationTime;
+                }
+                
+                logger.debug("Stationary change Time Change: {}", timeDiff);
+                if(heartBeatInterval < timeDiff){
+                    lastLocation = location;
+                    lastLocationTime = System.currentTimeMillis();
+                    handleLocation(location);
+                }
+            }
+            
+            if (distance > 0) {
+                startPollingStationaryLocation(STATIONARY_LOCATION_POLLING_INTERVAL_AGGRESSIVE);
+            } else if (stationaryLocationPollingInterval != STATIONARY_LOCATION_POLLING_INTERVAL_LAZY) {
+                startPollingStationaryLocation(STATIONARY_LOCATION_POLLING_INTERVAL_LAZY);
+            }
         } 
     }
 

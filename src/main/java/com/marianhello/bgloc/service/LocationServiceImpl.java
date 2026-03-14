@@ -776,12 +776,16 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
 
         postLocation(location);
 
-        if (this.heartbeatManager != null) {
-            Config config = getConfig();
-            int heartbeatInterval = config.getHeartbeatInterval(); 
-            
-            this.heartbeatManager.setInterval(heartbeatInterval);
-            this.heartbeatManager.start();
+        Config config = getConfig();
+        
+        if (config.getLocationProvider() != Config.DISTANCE_FILTER_PROVIDER) {
+            if (this.heartbeatManager != null) {
+                logger.info("Engaging Heartbeat for modern provider.");
+                this.heartbeatManager.setInterval(config.getStationaryInterval());
+                this.heartbeatManager.start();
+            }
+        } else {
+            logger.info("Legacy DistanceFilter active. Skipping HeartbeatManager.");
         }
     }
 
