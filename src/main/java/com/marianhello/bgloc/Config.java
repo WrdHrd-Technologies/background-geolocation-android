@@ -36,6 +36,8 @@ public class Config implements Parcelable
     public static final int ACTIVITY_PROVIDER = 1;
     public static final int RAW_PROVIDER = 2;
     public static final int FUSED_PROVIDER = 3;
+    public static final int FUSED_DISTANCE_FILTER_PROVIDER = 4;
+
 
     // NULL string config option to distinguish between java null
     public static final String NullString = new String();

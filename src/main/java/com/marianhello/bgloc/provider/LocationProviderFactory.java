@@ -13,6 +13,7 @@ import android.content.Context;
 
 import com.marianhello.bgloc.Config;
 import com.tenforwardconsulting.bgloc.DistanceFilterLocationProvider;
+import com.wrdhrd.bgloc.FusedDistanceFilterLocationProvider;
 
 import java.lang.IllegalArgumentException;
 
@@ -41,6 +42,9 @@ public class LocationProviderFactory {
                 break;
             case Config.FUSED_PROVIDER:
                 provider = new FusedLocationProvider(mContext);
+                break;
+            case Config.FUSED_DISTANCE_FILTER_PROVIDER:
+                provider = new FusedDistanceFilterLocationProvider(mContext);
                 break;
             default:
                 throw new IllegalArgumentException("Provider not found");

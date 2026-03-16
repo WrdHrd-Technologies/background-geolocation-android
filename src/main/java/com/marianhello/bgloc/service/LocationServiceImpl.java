@@ -20,6 +20,7 @@ import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.location.Location;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.os.Binder;
@@ -32,6 +33,8 @@ import android.os.Looper;
 import android.os.Message;
 import android.os.Process;
 import android.os.PowerManager;
+import android.os.SystemClock;
+
 import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
@@ -39,6 +42,7 @@ import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 import com.marianhello.bgloc.Config;
 import com.marianhello.bgloc.ConnectivityListener;
 import com.marianhello.bgloc.Setting;
+import com.marianhello.bgloc.data.BatteryUtils;
 import com.marianhello.bgloc.data.SettingDAO;
 import com.marianhello.bgloc.sync.NotificationHelper;
 import com.marianhello.bgloc.PluginException;
@@ -64,11 +68,13 @@ import com.marianhello.bgloc.sync.AccountHelper;
 import com.marianhello.bgloc.sync.SyncService;
 import com.marianhello.logging.LoggerManager;
 import com.marianhello.logging.UncaughtExceptionLogger;
+import com.wrdhrd.bgloc.FusedDistanceFilterLocationProvider;
 
 
 import org.chromium.content.browser.ThreadUtils;
 import org.json.JSONException;
 
+import static com.marianhello.bgloc.data.BackgroundLocation.SYNC_PENDING;
 import static com.marianhello.bgloc.service.LocationServiceIntentBuilder.containsCommand;
 import static com.marianhello.bgloc.service.LocationServiceIntentBuilder.containsMessage;
 import static com.marianhello.bgloc.service.LocationServiceIntentBuilder.getCommand;
@@ -428,7 +434,13 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
                     stopHeadlessTask();
                     break;
                 case CommandId.HEARTBEAT_PING:
-                    postHeartbeatLocation();
+                    logger.debug("Heartbeat ping received from AlarmManager!");
+                    postHeartbeatLocation(); // The method we wrote earlier to send to server
+        
+                    // RELOAD THE GUN: Reschedule the next beat
+                    if (this.heartbeatManager != null && this.heartbeatManager.isRunning()) {
+                        this.heartbeatManager.start(); 
+                    }
                     break;
             }
         } catch (Exception e) {
@@ -781,7 +793,7 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
         if (config.getLocationProvider() != Config.DISTANCE_FILTER_PROVIDER) {
             if (this.heartbeatManager != null) {
                 logger.info("Engaging Heartbeat for modern provider.");
-                this.heartbeatManager.setInterval(config.getStationaryInterval());
+                this.heartbeatManager.setInterval(config.getHeartbeatInterval());
                 this.heartbeatManager.start();
             }
         } else {
@@ -938,32 +950,115 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
         mPostLocationTask.add(location);
     }
 
-    private void postHeartbeatLocation() {
-        BackgroundLocation heartbeatTarget = mLastKnownLocation;
-
-        // FALLBACK: If the OS killed and restarted our service, RAM is clear.
-        // We must fetch the last known coordinate from SQLite.
-        if (heartbeatTarget == null && mLocationDAO != null) {
-            heartbeatTarget = mLocationDAO.getValidLatestLocation();
+    private void reloadHeartbeat() {
+        if (this.heartbeatManager != null && this.heartbeatManager.isRunning()) {
+            this.heartbeatManager.start(); 
         }
+    }
 
-        if (heartbeatTarget != null) {
-            logger.debug("Posting heartbeat location ping.");
-            BackgroundLocation ping = new BackgroundLocation(heartbeatTarget);
-            ping.setTime(System.currentTimeMillis()); 
-            mPostLocationTask.add(ping); 
+    private void evaluateHeartbeatMovement(Location freshLocation) {
+        if (mLastKnownLocation != null) {
+            float[] results = new float[1];
+            Location.distanceBetween(
+                    freshLocation.getLatitude(), freshLocation.getLongitude(),
+                    mLastKnownLocation.getLatitude(), mLastKnownLocation.getLongitude(),
+                    results
+            );
+            float distance = results[0];
+            float radius = mConfig.getStationaryRadius();
 
-            Config config = getConfig();
-            if (config != null && config.hasValidSyncUrl()) {
-                logger.info("Heartbeat bypass: Forcing immediate sync to server.");
+            if (distance >= radius) {
+                logger.info("HEARTBEAT DETECTED MOVEMENT! Distance: {}m. Waking up continuous tracking.", distance);
+
                 
-                // The 'true' flag forces an expedited, manual sync, 
-                // ignoring standard OS backoff delays.
-                SyncService.sync(mSyncAccount,mResolver.getAuthority(), true);
+                if (this.heartbeatManager != null) {
+                    this.heartbeatManager.stop();
+                }
+
+                BatteryUtils.BatteryInfo batteryInfo = BatteryUtils.getBatteryStatus(this);
+                BackgroundLocation bgLoc = BackgroundLocation.fromLocation(freshLocation);
+                bgLoc.setProvider("heartbeat_wakeup");
+                bgLoc.setStatus(SYNC_PENDING);
+                bgLoc.setBatchStartMillis(null);
+                bgLoc.setBatteryLevel(batteryInfo.getBatteryPercentage());
+                bgLoc.setIsCharging(batteryInfo.isCharging());
+                mLastKnownLocation = bgLoc;
+
+                if (mLocationDAO != null) {
+                    try {
+                        mLocationDAO.persistLocation(bgLoc);
+                        logger.debug("Fresh location committed to SQLite.");
+                    } catch (Exception e) {
+                        logger.error("Failed to commit Fresh location to database.", e);
+                    }
+                }
+                mProvider.onResume();
+                
+                return; 
+            } else {
+                logger.debug("Heartbeat distance: {}m. Still stationary within {}m radius.", distance, radius);
             }
-        } else {
-            logger.warn("Heartbeat fired but no previous location exists to send.");
         }
+
+        BackgroundLocation ping;
+        BatteryUtils.BatteryInfo batteryInfo = BatteryUtils.getBatteryStatus(this);
+        if (mLastKnownLocation != null) {
+            ping = new BackgroundLocation(mLastKnownLocation);
+        } else {
+            ping = BackgroundLocation.fromLocation(freshLocation);
+        }
+        ping.setTime(System.currentTimeMillis());
+        ping.setLocationId(null);
+        ping.setProvider("heartbeat_ping");
+        ping.setSpeed(0.0f);
+        ping.setStatus(SYNC_PENDING);
+        ping.setBatchStartMillis(null);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1) {
+            ping.setElapsedRealtimeNanos(SystemClock.elapsedRealtimeNanos());
+        }
+        ping.setBatteryLevel(batteryInfo.getBatteryPercentage());
+        ping.setIsCharging(batteryInfo.isCharging());
+
+        if (mLocationDAO != null) {
+            try {
+                mLocationDAO.persistLocation(ping);
+                logger.debug("Stationary ping committed to SQLite.");
+            } catch (Exception e) {
+                logger.error("Failed to commit ping to database.", e);
+            }
+        }
+
+        Config config = getConfig();
+        if (config != null && config.hasValidSyncUrl()) {
+            logger.debug("Flushing heartbeat ping to server.");
+            SyncService.sync(mSyncAccount, mResolver.getAuthority(), true);
+        }
+
+        reloadHeartbeat();
+    }
+
+    private void postHeartbeatLocation() {
+        if (!(mProvider instanceof FusedDistanceFilterLocationProvider)) {
+            logger.warn("Active provider is not FusedDistanceFilterLocationProvider. Cannot execute one-shot ping.");
+            return;
+        }
+
+        logger.debug("Requesting fresh GPS coordinate from hardware...");
+
+        ((FusedDistanceFilterLocationProvider) mProvider).requestSingleFreshLocation(
+            freshLocation -> {
+                if (freshLocation != null) {
+                    evaluateHeartbeatMovement(freshLocation);
+                } else {
+                    logger.warn("One-shot GPS returned null. Radio might be blocked underground.");
+                    reloadHeartbeat();
+                }
+            },
+            e -> {
+                logger.error("One-shot GPS request crashed.", e);
+                reloadHeartbeat();
+            }
+        );
     }
 
     public void handleRequestedAbortUpdates() {

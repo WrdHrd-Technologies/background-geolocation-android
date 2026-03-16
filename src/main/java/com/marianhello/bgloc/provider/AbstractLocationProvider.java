@@ -233,4 +233,8 @@ public abstract class AbstractLocationProvider implements LocationProvider {
         int duration = 1000;
         toneGenerator.startTone(name, duration);
     }
+
+    @Override
+    public void onResume() {
+    }
 }

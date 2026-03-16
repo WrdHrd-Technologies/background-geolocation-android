@@ -24,6 +24,7 @@ public interface LocationProvider {
     void onCreate();
     void onDestroy();
     void onStart();
+    void onResume();
     void onStop();
     void onCommand(int commandId, int arg1);
     void onConfigure(Config config);
