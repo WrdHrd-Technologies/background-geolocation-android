@@ -25,7 +25,7 @@ public class FusedDistanceFilterLocationProvider extends AbstractLocationProvide
 
     private FusedLocationProviderClient mFusedLocationClient;
     private LocationCallback mLocationCallback;
-    
+
     private boolean isStarted = false;
     private boolean isMoving = false;
     private int stationaryCount = 0;
@@ -35,6 +35,17 @@ public class FusedDistanceFilterLocationProvider extends AbstractLocationProvide
     private static final long INTERVAL_HIGHWAY = 10000;  // > 80 km/h
     private static final long INTERVAL_CITY = 15000;    // > 40 km/h
     private static final long INTERVAL_RUNNING = 30000; // > 10 km/h
+
+    private static final float SPEED_STILL_MAX = 0.5f;
+    private static final float SPEED_WALKING_MAX = 5.0f;
+
+    public static final String ACTIVITY_STILL = "STILL";
+    public static final String ACTIVITY_WALKING = "WALKING";
+    public static final String ACTIVITY_DRIVING = "DRIVING";
+
+    private String currentActivityState = ACTIVITY_STILL;
+    private String pendingActivityState = ACTIVITY_STILL;
+    private int stateConfidenceCount = 0;
 
     public FusedDistanceFilterLocationProvider(Context context) {
         super(context,Config.FUSED_DISTANCE_FILTER_PROVIDER);
@@ -67,34 +78,79 @@ public class FusedDistanceFilterLocationProvider extends AbstractLocationProvide
 
                         if (timeDeltaMillis > 0) {
                             speed = distance / (timeDeltaMillis / 1000.0f);
+                            location.setSpeed(speed);
                         }
                         logger.debug("Hardware speed missing. Calculated Software Speed: {} m/s", speed);
                     }
 
-                    adjustPaceBasedOnSpeed(speed);
+                    String votedState;
+                    if (speed <= SPEED_STILL_MAX) {
+                        votedState = ACTIVITY_STILL;
+                    } else if (speed <= SPEED_WALKING_MAX) {
+                        votedState = ACTIVITY_WALKING;
+                    } else {
+                        votedState = ACTIVITY_DRIVING;
+                    }
 
-                    if (isMoving && speed < 0.5f) {
+                    if (votedState.equals(currentActivityState)) {
+                        // We are maintaining our current state. Reset the pending shift.
+                        stateConfidenceCount = 0;
+                    } else if (votedState.equals(pendingActivityState)) {
+                        // The new state is holding steady. Increment confidence.
+                        stateConfidenceCount++;
+                    } else {
+                        // A completely new state just appeared. Start voting.
+                        pendingActivityState = votedState;
+                        stateConfidenceCount = 1;
+                    }
+
+                    if (stateConfidenceCount >= 3) {
+                        logger.info("Activity Shift Confirmed: {} -> {}", currentActivityState, pendingActivityState);
+                        currentActivityState = pendingActivityState;
+                        stateConfidenceCount = 0;
+                    }
+
+                    location.setProvider(location.getProvider() + "|" + currentActivityState);
+
+                    adjustPaceBasedOnSpeed(speed);
+                    if (currentActivityState.equals(ACTIVITY_STILL)) {
                         stationaryCount++;
-                        logger.debug("Low speed detected ({} m/s). Stationary count: {}", speed, stationaryCount);
-                        
                         if (stationaryCount >= 3) {
                             stationaryCount = 0;
-                            logger.info("User is stationary. Engaging Heartbeat and killing GPS.");
-
+                            logger.info("User is profoundly stationary. Engaging Heartbeat.");
+                            handleStationary(location, mConfig.getStationaryRadius());
                             if (mConfig.isDebugging()) {
                                 playDebugTone(ToneGenerator.Tone.LONG_BEEP); // Long tone so you know it went to sleep
                             }
-                            
-                            // Tell LocationServiceImpl to start the HeartbeatManager
-                            handleStationary(location, mConfig.getStationaryRadius()); 
-                            
-                            // Turn off the continuous GPS radio
-                            setPace(false); 
-                            return; 
+                            setPace(false);
+                            return;
                         }
-                    } else if (isMoving) {
-                        stationaryCount = 0; // Reset if they are moving
+                    } else {
+                        stationaryCount = 0; // Keep the engine running
                     }
+
+                    // if (isMoving && speed < 0.5f) {
+                    //     stationaryCount++;
+                    //     logger.debug("Low speed detected ({} m/s). Stationary count: {}", speed, stationaryCount);
+
+                    //     if (stationaryCount >= 3) {
+                    //         stationaryCount = 0;
+                    //         logger.info("User is stationary. Engaging Heartbeat and killing GPS.");
+
+                    //         if (mConfig.isDebugging()) {
+                    //             playDebugTone(ToneGenerator.Tone.LONG_BEEP); // Long tone so you know it went to sleep
+                    //         }
+
+                    //         // Tell LocationServiceImpl to start the HeartbeatManager
+                    //         handleStationary(location, mConfig.getStationaryRadius());
+
+                    //         // Turn off the continuous GPS radio
+                    //         setPace(false);
+                    //         return;
+                    //     }
+                    // } else if (isMoving) {
+                    //     stationaryCount = 0; // Reset if they are moving
+                    // }
 
                     if (lastLocation != null) {
                         float distance = location.distanceTo(lastLocation);
@@ -142,8 +198,8 @@ public class FusedDistanceFilterLocationProvider extends AbstractLocationProvide
         if (desiredInterval != currentActiveInterval) {
             logger.info("Shifting tracking gear. New Interval: {} ms", desiredInterval);
             currentActiveInterval = desiredInterval;
-            
-            long hardwareFastestInterval = desiredInterval / 2; 
+
+            long hardwareFastestInterval = desiredInterval / 2;
             int priority = translateDesiredAccuracy(mConfig.getDesiredAccuracy());
 
             LocationRequest locationRequest = new LocationRequest.Builder(priority, desiredInterval)
@@ -175,7 +231,7 @@ public class FusedDistanceFilterLocationProvider extends AbstractLocationProvide
         logger.info("Starting FusedDistanceFilterLocationProvider");
         super.onStart();
         isStarted = true;
-        setPace(true); 
+        setPace(true);
     }
 
     @Override
@@ -196,14 +252,14 @@ public class FusedDistanceFilterLocationProvider extends AbstractLocationProvide
         if (!isStarted) return;
         isMoving = moving;
         stationaryCount = 0;
-        
+
         try {
             mFusedLocationClient.removeLocationUpdates(mLocationCallback);
-            currentActiveInterval = -1; 
+            currentActiveInterval = -1;
 
             if (isMoving) {
                 logger.info("Engaging continuous GPS tracking.");
-                adjustPaceBasedOnSpeed(0.0f); 
+                adjustPaceBasedOnSpeed(0.0f);
             } else {
                 logger.info("GPS suspended. Yielding to HeartbeatManager.");
             }
@@ -213,18 +269,18 @@ public class FusedDistanceFilterLocationProvider extends AbstractLocationProvide
     }
 
     /**
-     * Called exclusively by the HeartbeatManager from LocationServiceImpl 
+     * Called exclusively by the HeartbeatManager from LocationServiceImpl
      * to perform the One-Shot GPS Ping while the app is stationary.
      */
     @SuppressLint("MissingPermission")
     public void requestSingleFreshLocation(OnSuccessListener<Location> listener, OnFailureListener failureListener) {
         logger.debug("Waking GPS radio for one-shot heartbeat ping...");
         CancellationTokenSource cancellationTokenSource = new CancellationTokenSource();
-        
+
         try {
             mFusedLocationClient.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, cancellationTokenSource.getToken())
-                .addOnSuccessListener(listener)
-                .addOnFailureListener(failureListener);
+                    .addOnSuccessListener(listener)
+                    .addOnFailureListener(failureListener);
         } catch (SecurityException e) {
             handleSecurityException(e);
             if (failureListener != null) {
