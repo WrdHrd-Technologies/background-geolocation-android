@@ -11,7 +11,6 @@ package com.marianhello.bgloc.service;
 
 import android.content.pm.ServiceInfo;
 import android.annotation.SuppressLint;
-import android.accounts.Account;
 import android.app.Notification;
 import android.app.NotificationManager;
 import android.app.Service;
@@ -38,12 +37,20 @@ import android.os.SystemClock;
 import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
+import androidx.work.Constraints;
+import androidx.work.Data;
+import androidx.work.ExistingWorkPolicy;
+import androidx.work.NetworkType;
+import androidx.work.OneTimeWorkRequest;
+import androidx.work.OutOfQuotaPolicy;
+import androidx.work.WorkManager;
 
 import com.marianhello.bgloc.Config;
 import com.marianhello.bgloc.ConnectivityListener;
 import com.marianhello.bgloc.Setting;
 import com.marianhello.bgloc.data.BatteryUtils;
 import com.marianhello.bgloc.data.SettingDAO;
+import com.marianhello.bgloc.sync.LocationSyncWorker;
 import com.marianhello.bgloc.sync.NotificationHelper;
 import com.marianhello.bgloc.PluginException;
 import com.marianhello.bgloc.PostLocationTask;
@@ -64,8 +71,6 @@ import com.marianhello.bgloc.headless.TaskRunnerFactory;
 import com.marianhello.bgloc.provider.LocationProvider;
 import com.marianhello.bgloc.provider.LocationProviderFactory;
 import com.marianhello.bgloc.provider.ProviderDelegate;
-import com.marianhello.bgloc.sync.AccountHelper;
-import com.marianhello.bgloc.sync.SyncService;
 import com.marianhello.logging.LoggerManager;
 import com.marianhello.logging.UncaughtExceptionLogger;
 import com.wrdhrd.bgloc.FusedDistanceFilterLocationProvider;
@@ -124,7 +129,6 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
     private Config mConfig;
     private Setting mSetting;
     private LocationProvider mProvider;
-    private Account mSyncAccount;
 
     private org.slf4j.Logger logger;
 
@@ -215,12 +219,7 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
 
         mResolver = ResourceResolver.newInstance(this);
 
-        mSyncAccount = AccountHelper.CreateSyncAccount(this, mResolver.getAccountName(),
-                mResolver.getAccountType());
-
         String authority = mResolver.getAuthority();
-        ContentResolver.setIsSyncable(mSyncAccount, authority, 1);
-        ContentResolver.setSyncAutomatically(mSyncAccount, authority, true);
 
         mLocationDAO = DAOFactory.createLocationDAO(this);
 
@@ -242,7 +241,7 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
 
                     @Override
                     public void onSyncRequested() {
-                        SyncService.sync(mSyncAccount, mResolver.getAuthority(), false);
+                        scheduleNetworkSync(false);
                     }
                 }, new ConnectivityListener() {
             @Override
@@ -1031,7 +1030,7 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
         Config config = getConfig();
         if (config != null && config.hasValidSyncUrl()) {
             logger.debug("Flushing heartbeat ping to server.");
-            SyncService.sync(mSyncAccount, mResolver.getAuthority(), true);
+            scheduleNetworkSync(true);
         }
 
         reloadHeartbeat();
@@ -1107,5 +1106,28 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
 
     public static @Nullable LocationTransform getLocationTransform() {
         return sLocationTransform;
+    }
+
+    private void scheduleNetworkSync(boolean forceImmediate) {
+        logger.debug("Scheduling WorkManager to sync locations to the server.");
+
+        Constraints constraints = new Constraints.Builder()
+                .setRequiredNetworkType(NetworkType.CONNECTED)
+                .build();
+        Data inputData = new Data.Builder()
+                .putBoolean("force_sync", forceImmediate)
+                .build();
+
+        OneTimeWorkRequest syncRequest = new OneTimeWorkRequest.Builder(LocationSyncWorker.class)
+                .setConstraints(constraints)
+                .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
+                .setInputData(inputData)
+                .build();
+
+        WorkManager.getInstance(getApplicationContext()).enqueueUniqueWork(
+                "LocationSyncJob",
+                ExistingWorkPolicy.APPEND_OR_REPLACE,
+                syncRequest
+        );
     }
 }

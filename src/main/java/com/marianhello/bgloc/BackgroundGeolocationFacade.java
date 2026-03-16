@@ -1,7 +1,6 @@
 package com.marianhello.bgloc;
 
 import android.Manifest;
-import android.accounts.Account;
 import android.annotation.TargetApi;
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -16,6 +15,14 @@ import android.provider.Settings;
 import android.provider.Settings.SettingNotFoundException;
 import androidx.core.content.ContextCompat;
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
+import androidx.work.Constraints;
+import androidx.work.Data;
+import androidx.work.ExistingWorkPolicy;
+import androidx.work.NetworkType;
+import androidx.work.OneTimeWorkRequest;
+import androidx.work.OutOfQuotaPolicy;
+import androidx.work.WorkManager;
+
 import android.text.TextUtils;
 
 import com.github.jparkie.promise.Promise;
@@ -31,9 +38,8 @@ import com.marianhello.bgloc.service.LocationService;
 import com.marianhello.bgloc.service.LocationServiceImpl;
 import com.marianhello.bgloc.service.LocationServiceProxy;
 import com.marianhello.bgloc.data.LocationTransform;
-import com.marianhello.bgloc.sync.AccountHelper;
+import com.marianhello.bgloc.sync.LocationSyncWorker;
 import com.marianhello.bgloc.sync.NotificationHelper;
-import com.marianhello.bgloc.sync.SyncService;
 import com.marianhello.logging.DBLogReader;
 import com.marianhello.logging.LogEntry;
 import com.marianhello.logging.LoggerManager;
@@ -490,11 +496,30 @@ public class BackgroundGeolocationFacade {
      * and sync locations to defined syncUrl
      */
     public void forceSync() {
-        logger.debug("Sync locations forced");
-        ResourceResolver resolver = ResourceResolver.newInstance(getContext());
-        Account syncAccount = AccountHelper.CreateSyncAccount(getContext(), resolver.getAccountName(),
-                resolver.getAccountType());
-        SyncService.sync(syncAccount, resolver.getAuthority(), true);
+        logger.debug("Sync locations forced via WorkManager");
+
+        Constraints constraints = new Constraints.Builder()
+                .setRequiredNetworkType(NetworkType.CONNECTED)
+                .build();
+
+        // 1. Tell the worker to bypass the database threshold
+        Data inputData = new Data.Builder()
+                .putBoolean("force_sync", true)
+                .build();
+
+        // 2. Build the Expedited Request
+        OneTimeWorkRequest syncRequest = new OneTimeWorkRequest.Builder(LocationSyncWorker.class)
+                .setConstraints(constraints)
+                .setInputData(inputData)
+                .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
+                .build();
+
+        // 3. Shove it to the front of the queue
+        WorkManager.getInstance(getApplicationContext()).enqueueUniqueWork(
+                "LocationSyncJob",
+                ExistingWorkPolicy.APPEND_OR_REPLACE,
+                syncRequest
+        );
     }
 
     public int getAuthorizationStatus() {

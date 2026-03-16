@@ -97,4 +97,5 @@ dependencies {
     implementation fileTree(include: ['*.jar'], dir: 'libs')
     implementation "com.github.suman379:RealTime:master-SNAPSHOT"
     implementation 'com.google.android.gms:play-services-location:19.0.1'
+    implementation 'androidx.work:work-runtime:2.11.1'
 }
