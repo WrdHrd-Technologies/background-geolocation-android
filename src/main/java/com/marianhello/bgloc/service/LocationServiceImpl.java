@@ -434,6 +434,11 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
                     break;
                 case CommandId.HEARTBEAT_PING:
                     logger.debug("Heartbeat ping received from AlarmManager!");
+                    if (wakeLock != null && !wakeLock.isHeld()) {
+                        logger.debug("Acquiring CPU WakeLock for asynchronous GPS ping.");
+                        wakeLock.acquire(30 * 1000L); // Force CPU to stay awake for max 30 seconds
+                    }
+
                     postHeartbeatLocation(); // The method we wrote earlier to send to server
         
                     // RELOAD THE GUN: Reschedule the next beat
@@ -1034,6 +1039,11 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
         }
 
         reloadHeartbeat();
+
+        if (wakeLock != null && wakeLock.isHeld()) {
+            logger.debug("Heartbeat pipeline complete. Releasing CPU WakeLock.");
+            wakeLock.release();
+        }
     }
 
     private void postHeartbeatLocation() {
@@ -1056,6 +1066,11 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
             e -> {
                 logger.error("One-shot GPS request crashed.", e);
                 reloadHeartbeat();
+
+                if (wakeLock != null && wakeLock.isHeld()) {
+                    logger.debug("Heartbeat pipeline complete. Releasing CPU WakeLock.");
+                    wakeLock.release();
+                }
             }
         );
     }
