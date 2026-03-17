@@ -1,5 +1,7 @@
 package com.marianhello.bgloc;
 
+import static com.marianhello.bgloc.data.BackgroundLocation.SYNC_PENDING;
+
 import android.Manifest;
 import android.annotation.TargetApi;
 import android.content.BroadcastReceiver;
@@ -11,6 +13,7 @@ import android.location.Location;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.SystemClock;
 import android.provider.Settings;
 import android.provider.Settings.SettingNotFoundException;
 import androidx.core.content.ContextCompat;
@@ -58,7 +61,7 @@ public class BackgroundGeolocationFacade {
     public static final int SERVICE_STOPPED = 0;
     public static final int AUTHORIZATION_AUTHORIZED = 1;
     public static final int AUTHORIZATION_DENIED = 0;
-    
+
     public static final String[] INITIALPERMISSIONS = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q ? new String[]{
             Manifest.permission.ACTIVITY_RECOGNITION,
             Manifest.permission.ACCESS_COARSE_LOCATION,
@@ -77,11 +80,11 @@ public class BackgroundGeolocationFacade {
             Manifest.permission.ACCESS_BACKGROUND_LOCATION,
             Manifest.permission.ACTIVITY_RECOGNITION
     }
-    :
-    new String[]{
-            Manifest.permission.ACCESS_COARSE_LOCATION,
-            Manifest.permission.ACCESS_FINE_LOCATION,
-    };
+            :
+            new String[]{
+                    Manifest.permission.ACCESS_COARSE_LOCATION,
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+            };
 
     private boolean mServiceBroadcastReceiverRegistered = false;
     private boolean mLocationModeChangeReceiverRegistered = false;
@@ -111,6 +114,8 @@ public class BackgroundGeolocationFacade {
         logger.info("Initializing plugin");
 
         NotificationHelper.registerAllChannels(getApplicationContext());
+
+        auditUngracefulKill();
     }
 
     private BroadcastReceiver locationModeChangeReceiver = new BroadcastReceiver() {
@@ -243,7 +248,7 @@ public class BackgroundGeolocationFacade {
         logger.debug("Starting service");
 
         PermissionManager permissionManager = PermissionManager.getInstance(getContext());
-         permissionManager.checkPermissions(Arrays.asList(INITIALPERMISSIONS), new PermissionManager.PermissionRequestListener() {
+        permissionManager.checkPermissions(Arrays.asList(INITIALPERMISSIONS), new PermissionManager.PermissionRequestListener() {
             @Override
             public void onPermissionGranted() {
                 logger.info("User granted initial requested permissions");
@@ -274,7 +279,7 @@ public class BackgroundGeolocationFacade {
                     registerServiceBroadcast();
                     startBackgroundService();
                 }
-                
+
             }
 
             @Override
@@ -628,5 +633,80 @@ public class BackgroundGeolocationFacade {
 
     public static LocationTransform getLocationTransform() {
         return LocationServiceImpl.getLocationTransform();
+    }
+
+    private void auditUngracefulKill() {
+        try {
+            boolean shouldBeRunning = getSetting().isStarted();
+            boolean isActuallyRunning = isServiceRunningInOS(LocationServiceImpl.class);;
+
+            if (shouldBeRunning && !isActuallyRunning) {
+                LocationDAO dao = DAOFactory.createLocationDAO(getContext());
+                BackgroundLocation lastKnown = dao.getValidLatestLocation();
+
+                long deviceUptimeMillis = SystemClock.elapsedRealtime();
+                long tenMinutesMillis = 10 * 60 * 1000L;
+
+                double lastLat = 0.0;
+                double lastLon = 0.0;
+                float accuracy = 0.0f;
+                float radius = 0.0f;
+                double altitude = 0.0;
+                float speed = 0.0f;
+
+                if (lastKnown != null) {
+                    lastLat = lastKnown.getLatitude();
+                    lastLon = lastKnown.getLongitude();
+                    accuracy = lastKnown.getAccuracy();
+                    radius = lastKnown.getRadius();
+                    altitude = lastKnown.getAltitude();
+                    speed = lastKnown.getSpeed();
+                    logger.debug("Audit Ghost Point anchored to native DAO location: {}, {}", lastLat, lastLon);
+                }
+
+                BackgroundLocation ghostLocation = new BackgroundLocation();
+                ghostLocation.setTime(System.currentTimeMillis());
+                ghostLocation.setLocationId(null);
+                ghostLocation.setSpeed(speed);
+                ghostLocation.setAccuracy(accuracy);
+                ghostLocation.setAltitude(altitude);
+                ghostLocation.setRadius(radius);
+                ghostLocation.setStatus(SYNC_PENDING);
+                ghostLocation.setBatchStartMillis(null);
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1) {
+                    ghostLocation.setElapsedRealtimeNanos(SystemClock.elapsedRealtimeNanos());
+                }
+                ghostLocation.setBatteryLevel(0);
+                ghostLocation.setIsCharging(false);
+
+                if (deviceUptimeMillis < tenMinutesMillis) {
+                    logger.warn("AUDIT: Phone recently booted up. Logging as Device Reboot/Dead Battery.");
+                    ghostLocation.setProvider("system|DEVICE_REBOOT_RECOVERED");
+                } else {
+                    logger.warn("AUDIT FAIL: Phone has been running, but app is dead. Logging as Force Stop.");
+                    ghostLocation.setProvider("system|UNGRACEFUL_KILL_RECOVERED");
+                }
+
+                dao.persistLocation(ghostLocation);
+                forceSync();
+
+            } else {
+                logger.info("AUDIT PASS: Service state matches database state.");
+            }
+        } catch (Exception e) {
+            logger.error("Failed to execute ungraceful kill audit", e);
+        }
+    }
+
+    private boolean isServiceRunningInOS(Class<?> serviceClass) {
+        android.app.ActivityManager manager = (android.app.ActivityManager) getContext().getSystemService(Context.ACTIVITY_SERVICE);
+        if (manager != null) {
+            for (android.app.ActivityManager.RunningServiceInfo service : manager.getRunningServices(Integer.MAX_VALUE)) {
+                if (serviceClass.getName().equals(service.service.getClassName())) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 }

@@ -46,10 +46,13 @@ public class BackgroundLocation implements Parcelable {
 
     private static final long TWO_MINUTES_IN_NANOS = 1000000000L * 60 * 2;
 
-    public BackgroundLocation() {}
+    public BackgroundLocation() {
+        realtime = RealTimeHelper.now().getTime();
+    }
 
     public BackgroundLocation(String provider) {
         this.provider = provider;
+        realtime = RealTimeHelper.now().getTime();
     }
 
 
