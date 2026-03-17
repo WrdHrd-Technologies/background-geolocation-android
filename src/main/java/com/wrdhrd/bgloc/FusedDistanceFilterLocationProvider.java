@@ -2,7 +2,6 @@ package com.wrdhrd.bgloc;
 
 import android.annotation.SuppressLint;
 import android.content.Context;
-import android.location.Criteria;
 import android.location.Location;
 import android.os.Looper;
 
@@ -33,8 +32,8 @@ public class FusedDistanceFilterLocationProvider extends AbstractLocationProvide
     private long currentActiveInterval = -1;
 
     private static final long INTERVAL_HIGHWAY = 10000;  // > 80 km/h
-    private static final long INTERVAL_CITY = 15000;    // > 40 km/h
-    private static final long INTERVAL_RUNNING = 30000; // > 10 km/h
+    private static final long INTERVAL_CITY = 15000;     // > 40 km/h
+    private static final long INTERVAL_RUNNING = 30000;  // > 10 km/h
 
     private static final float SPEED_STILL_MAX = 0.5f;
     private static final float SPEED_WALKING_MAX = 5.0f;
@@ -48,7 +47,7 @@ public class FusedDistanceFilterLocationProvider extends AbstractLocationProvide
     private int stateConfidenceCount = 0;
 
     public FusedDistanceFilterLocationProvider(Context context) {
-        super(context,Config.FUSED_DISTANCE_FILTER_PROVIDER);
+        super(context, Config.FUSED_DISTANCE_FILTER_PROVIDER);
     }
 
     @Override
@@ -62,6 +61,12 @@ public class FusedDistanceFilterLocationProvider extends AbstractLocationProvide
                 if (locationResult == null) return;
 
                 for (Location location : locationResult.getLocations()) {
+
+                    if (!isMoving) {
+                        logger.info("Hardware Displacement Shield broken! Waking up engine instantly.");
+                        setPace(true); 
+                    }
+
                     if (location.getAccuracy() > 100.0f) {
                         logger.debug("Garbage location ignored. Accuracy: {}m", location.getAccuracy());
                         continue;
@@ -69,16 +74,14 @@ public class FusedDistanceFilterLocationProvider extends AbstractLocationProvide
 
                     float speed = 0.0f;
                     if (location.hasSpeed() && location.getSpeed() > 0.0f) {
-                        // Hardware gave us a valid doppler-shift speed
                         speed = location.getSpeed();
                     } else if (lastLocation != null) {
-                        // Hardware failed. Calculate Software Speed: v = d / t
                         float distance = location.distanceTo(lastLocation);
                         long timeDeltaMillis = location.getTime() - lastLocation.getTime();
 
                         if (timeDeltaMillis > 0) {
                             speed = distance / (timeDeltaMillis / 1000.0f);
-                            location.setSpeed(speed);
+                            location.setSpeed(speed); 
                         }
                         logger.debug("Hardware speed missing. Calculated Software Speed: {} m/s", speed);
                     }
@@ -93,13 +96,10 @@ public class FusedDistanceFilterLocationProvider extends AbstractLocationProvide
                     }
 
                     if (votedState.equals(currentActivityState)) {
-                        // We are maintaining our current state. Reset the pending shift.
                         stateConfidenceCount = 0;
                     } else if (votedState.equals(pendingActivityState)) {
-                        // The new state is holding steady. Increment confidence.
                         stateConfidenceCount++;
                     } else {
-                        // A completely new state just appeared. Start voting.
                         pendingActivityState = votedState;
                         stateConfidenceCount = 1;
                     }
@@ -113,44 +113,25 @@ public class FusedDistanceFilterLocationProvider extends AbstractLocationProvide
                     location.setProvider(location.getProvider() + "|" + currentActivityState);
 
                     adjustPaceBasedOnSpeed(speed);
+                    
                     if (currentActivityState.equals(ACTIVITY_STILL)) {
                         stationaryCount++;
                         if (stationaryCount >= 3) {
                             stationaryCount = 0;
                             logger.info("User is profoundly stationary. Engaging Heartbeat.");
+                            
                             handleStationary(location, mConfig.getStationaryRadius());
+                            
                             if (mConfig.isDebugging()) {
-                                playDebugTone(ToneGenerator.Tone.LONG_BEEP); // Long tone so you know it went to sleep
+                                playDebugTone(ToneGenerator.Tone.LONG_BEEP); 
                             }
+                            
                             setPace(false);
-                            return;
+                            return; 
                         }
                     } else {
-                        stationaryCount = 0; // Keep the engine running
+                        stationaryCount = 0; 
                     }
-
-                    // if (isMoving && speed < 0.5f) {
-                    //     stationaryCount++;
-                    //     logger.debug("Low speed detected ({} m/s). Stationary count: {}", speed, stationaryCount);
-
-                    //     if (stationaryCount >= 3) {
-                    //         stationaryCount = 0;
-                    //         logger.info("User is stationary. Engaging Heartbeat and killing GPS.");
-
-                    //         if (mConfig.isDebugging()) {
-                    //             playDebugTone(ToneGenerator.Tone.LONG_BEEP); // Long tone so you know it went to sleep
-                    //         }
-
-                    //         // Tell LocationServiceImpl to start the HeartbeatManager
-                    //         handleStationary(location, mConfig.getStationaryRadius());
-
-                    //         // Turn off the continuous GPS radio
-                    //         setPace(false);
-                    //         return;
-                    //     }
-                    // } else if (isMoving) {
-                    //     stationaryCount = 0; // Reset if they are moving
-                    // }
 
                     if (lastLocation != null) {
                         float distance = location.distanceTo(lastLocation);
@@ -158,12 +139,12 @@ public class FusedDistanceFilterLocationProvider extends AbstractLocationProvide
                         if (distance < dynamicFilter) {
                             logger.debug("Elastic Filter: Ignored {}m movement. Dynamic limit at {}m/s is {}m.",
                                     distance, speed, dynamicFilter);
-                            continue; // Skip the DB save
+                            continue; 
                         }
                     }
 
                     if (mConfig.isDebugging()) {
-                        playDebugTone(ToneGenerator.Tone.BEEP); // Short beep every time a location passes the filters
+                        playDebugTone(ToneGenerator.Tone.BEEP);
                     }
 
                     logger.debug("Valid movement detected. Saving location.");
@@ -189,7 +170,7 @@ public class FusedDistanceFilterLocationProvider extends AbstractLocationProvide
         } else if (speedMetersPerSecond > 3.0f) {
             desiredInterval = INTERVAL_RUNNING;
         } else {
-            desiredInterval = baseInterval; // Walking/Traffic
+            desiredInterval = baseInterval; 
         }
 
         desiredInterval = Math.max(absoluteFastest, desiredInterval);
@@ -213,6 +194,33 @@ public class FusedDistanceFilterLocationProvider extends AbstractLocationProvide
             } catch (SecurityException e) {
                 handleSecurityException(e);
             }
+        }
+    }
+
+    private void setPace(boolean moving) {
+        if (!isStarted) return;
+        isMoving = moving;
+        stationaryCount = 0;
+
+        try {
+            mFusedLocationClient.removeLocationUpdates(mLocationCallback);
+            currentActiveInterval = -1;
+
+            if (isMoving) {
+                logger.info("Engaging continuous GPS tracking.");
+                adjustPaceBasedOnSpeed(0.0f);
+            } else {
+                logger.info("GPS suspended. Deploying Hardware Displacement Shield.");
+
+                LocationRequest sentryRequest = new LocationRequest.Builder(Priority.PRIORITY_BALANCED_POWER_ACCURACY, 15 * 60 * 1000)
+                        .setMinUpdateIntervalMillis(5 * 60 * 1000)
+                        .setMinUpdateDistanceMeters(mConfig.getStationaryRadius()) 
+                        .build();
+
+                mFusedLocationClient.requestLocationUpdates(sentryRequest, mLocationCallback, Looper.getMainLooper());
+            }
+        } catch (SecurityException e) {
+            handleSecurityException(e);
         }
     }
 
@@ -248,30 +256,6 @@ public class FusedDistanceFilterLocationProvider extends AbstractLocationProvide
         currentActiveInterval = -1;
     }
 
-    private void setPace(boolean moving) {
-        if (!isStarted) return;
-        isMoving = moving;
-        stationaryCount = 0;
-
-        try {
-            mFusedLocationClient.removeLocationUpdates(mLocationCallback);
-            currentActiveInterval = -1;
-
-            if (isMoving) {
-                logger.info("Engaging continuous GPS tracking.");
-                adjustPaceBasedOnSpeed(0.0f);
-            } else {
-                logger.info("GPS suspended. Yielding to HeartbeatManager.");
-            }
-        } catch (SecurityException e) {
-            handleSecurityException(e);
-        }
-    }
-
-    /**
-     * Called exclusively by the HeartbeatManager from LocationServiceImpl
-     * to perform the One-Shot GPS Ping while the app is stationary.
-     */
     @SuppressLint("MissingPermission")
     public void requestSingleFreshLocation(OnSuccessListener<Location> listener, OnFailureListener failureListener) {
         logger.debug("Waking GPS radio for one-shot heartbeat ping...");
@@ -293,21 +277,15 @@ public class FusedDistanceFilterLocationProvider extends AbstractLocationProvide
         if (accuracy == null) {
             return Priority.PRIORITY_BALANCED_POWER_ACCURACY;
         }
-
         if (accuracy >= 1000) {
-            // City block level accuracy, best for battery
             return Priority.PRIORITY_LOW_POWER;
         }
         if (accuracy >= 100) {
-            // ~100m accuracy, good for general urban tracking
             return Priority.PRIORITY_BALANCED_POWER_ACCURACY;
         }
         if (accuracy >= 0) {
-            // ~10m accuracy, forces the GPS chip on
             return Priority.PRIORITY_HIGH_ACCURACY;
         }
-
-        // Default fallback
         return Priority.PRIORITY_BALANCED_POWER_ACCURACY;
     }
 
@@ -333,17 +311,11 @@ public class FusedDistanceFilterLocationProvider extends AbstractLocationProvide
 
     private int calculateDynamicDistanceFilter(float speed) {
         int baseFilter = mConfig.getDistanceFilter();
-
-        // Sanity check: If speed is insane (over 360 km/h), fallback to base
         if (speed < 100.0f) {
-            // Round to nearest 5 for clean math, then square it
             float roundedSpeed = (Math.round(speed / 5.0f) * 5.0f);
             int dynamicFilter = (int) Math.pow(roundedSpeed, 2) + baseFilter;
-
-            // Cap the stretch at 1000 meters so we don't go totally blind
             return Math.min(dynamicFilter, 1000);
         }
-
         return baseFilter;
     }
 }
