@@ -63,8 +63,17 @@ public class FusedDistanceFilterLocationProvider extends AbstractLocationProvide
                 for (Location location : locationResult.getLocations()) {
 
                     if (!isMoving) {
+                        if (lastLocation != null) {
+                            float breakoutDistance = location.distanceTo(lastLocation);
+                            if (breakoutDistance < mConfig.getStationaryRadius()) {
+                                logger.debug("Sentry initial ping ignored. Distance ({}m) is inside the {}m shield.",
+                                        breakoutDistance, mConfig.getStationaryRadius());
+                                continue; // Drop the point. Stay asleep.
+                            }
+                        }
+
                         logger.info("Hardware Displacement Shield broken! Waking up engine instantly.");
-                        setPace(true); 
+                        setPace(true);
                     }
 
                     if (location.getAccuracy() > 100.0f) {
@@ -110,7 +119,13 @@ public class FusedDistanceFilterLocationProvider extends AbstractLocationProvide
                         stateConfidenceCount = 0;
                     }
 
-                    location.setProvider(location.getProvider() + "|" + currentActivityState);
+                    String rawProvider = location.getProvider();
+                    if (rawProvider != null) {
+                        String baseProvider = rawProvider.split("\\|")[0];
+                        location.setProvider(baseProvider + "|" + currentActivityState);
+                    } else {
+                        location.setProvider("unknown|" + currentActivityState);
+                    }
 
                     adjustPaceBasedOnSpeed(speed);
                     
@@ -214,7 +229,7 @@ public class FusedDistanceFilterLocationProvider extends AbstractLocationProvide
 
                 LocationRequest sentryRequest = new LocationRequest.Builder(Priority.PRIORITY_BALANCED_POWER_ACCURACY, 15 * 60 * 1000)
                         .setMinUpdateIntervalMillis(5 * 60 * 1000)
-                        .setMinUpdateDistanceMeters(mConfig.getStationaryRadius()) 
+                        .setMinUpdateDistanceMeters(mConfig.getStationaryRadius())
                         .build();
 
                 mFusedLocationClient.requestLocationUpdates(sentryRequest, mLocationCallback, Looper.getMainLooper());
