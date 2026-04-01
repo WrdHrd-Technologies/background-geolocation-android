@@ -62,37 +62,40 @@ public class FusedDistanceFilterLocationProvider extends AbstractLocationProvide
 
                 for (Location location : locationResult.getLocations()) {
 
+                    float speed = location.hasSpeed() ? location.getSpeed() : 0.0f;
+                    if (speed == 0.0f && lastLocation != null) {
+                        float distance = location.distanceTo(lastLocation);
+                        long timeDeltaMillis = location.getTime() - lastLocation.getTime();
+                        if (timeDeltaMillis > 0) {
+                            speed = distance / (timeDeltaMillis / 1000.0f);
+                            location.setSpeed(speed);
+                        }
+                    }
+
+                    float accuracy = location.hasAccuracy() ? location.getAccuracy() : 999.0f;
+                    boolean isHallucination = false;
+
+                    if (speed < 2.0f) {
+                        if (accuracy > 50.0f) isHallucination = true;
+                    } else {
+                        if (accuracy > 150.0f) isHallucination = true;
+                    }
+
+                    if (isHallucination) {
+                        logger.warn("SENTRY BLOCKED: Accuracy {}m is too blurry for velocity {}m/s.", accuracy, speed);
+                        continue;
+                    }
+
                     if (!isMoving) {
                         if (lastLocation != null) {
                             float breakoutDistance = location.distanceTo(lastLocation);
                             if (breakoutDistance < mConfig.getStationaryRadius()) {
-                                logger.debug("Sentry initial ping ignored. Distance ({}m) is inside the {}m shield.",
-                                        breakoutDistance, mConfig.getStationaryRadius());
-                                continue; // Drop the point. Stay asleep.
+                                logger.debug("Sentry ignored. Distance ({}m) inside {}m shield.", breakoutDistance, mConfig.getStationaryRadius());
+                                continue;
                             }
                         }
-
-                        logger.info("Hardware Displacement Shield broken! Waking up engine instantly.");
+                        logger.info("Hardware Displacement Shield broken! Waking up engine.");
                         setPace(true);
-                    }
-
-                    if (location.getAccuracy() > 100.0f) {
-                        logger.debug("Garbage location ignored. Accuracy: {}m", location.getAccuracy());
-                        continue;
-                    }
-
-                    float speed = 0.0f;
-                    if (location.hasSpeed() && location.getSpeed() > 0.0f) {
-                        speed = location.getSpeed();
-                    } else if (lastLocation != null) {
-                        float distance = location.distanceTo(lastLocation);
-                        long timeDeltaMillis = location.getTime() - lastLocation.getTime();
-
-                        if (timeDeltaMillis > 0) {
-                            speed = distance / (timeDeltaMillis / 1000.0f);
-                            location.setSpeed(speed); 
-                        }
-                        logger.debug("Hardware speed missing. Calculated Software Speed: {} m/s", speed);
                     }
 
                     String votedState;
@@ -114,7 +117,7 @@ public class FusedDistanceFilterLocationProvider extends AbstractLocationProvide
                     }
 
                     if (stateConfidenceCount >= 3) {
-                        logger.info("Activity Shift Confirmed: {} -> {}", currentActivityState, pendingActivityState);
+                        logger.info("Activity Shift: {} -> {}", currentActivityState, pendingActivityState);
                         currentActivityState = pendingActivityState;
                         stateConfidenceCount = 0;
                     }
@@ -128,40 +131,32 @@ public class FusedDistanceFilterLocationProvider extends AbstractLocationProvide
                     }
 
                     adjustPaceBasedOnSpeed(speed);
-                    
+
                     if (currentActivityState.equals(ACTIVITY_STILL)) {
                         stationaryCount++;
                         if (stationaryCount >= 3) {
                             stationaryCount = 0;
-                            logger.info("User is profoundly stationary. Engaging Heartbeat.");
-                            
+                            logger.info("User profoundly stationary. Engaging Heartbeat.");
                             handleStationary(location, mConfig.getStationaryRadius());
-                            
-                            if (mConfig.isDebugging()) {
-                                playDebugTone(ToneGenerator.Tone.LONG_BEEP); 
-                            }
-                            
+                            if (mConfig.isDebugging()) playDebugTone(ToneGenerator.Tone.LONG_BEEP);
                             setPace(false);
-                            return; 
+
+                            continue; // CRITICAL FIX: 'continue', not 'return'.
                         }
                     } else {
-                        stationaryCount = 0; 
+                        stationaryCount = 0;
                     }
 
                     if (lastLocation != null) {
                         float distance = location.distanceTo(lastLocation);
                         int dynamicFilter = calculateDynamicDistanceFilter(speed);
                         if (distance < dynamicFilter) {
-                            logger.debug("Elastic Filter: Ignored {}m movement. Dynamic limit at {}m/s is {}m.",
-                                    distance, speed, dynamicFilter);
-                            continue; 
+                            logger.debug("Elastic Filter: Ignored {}m movement. Dynamic limit is {}m.", distance, dynamicFilter);
+                            continue;
                         }
                     }
 
-                    if (mConfig.isDebugging()) {
-                        playDebugTone(ToneGenerator.Tone.BEEP);
-                    }
-
+                    if (mConfig.isDebugging()) playDebugTone(ToneGenerator.Tone.BEEP);
                     logger.debug("Valid movement detected. Saving location.");
                     lastLocation = location;
                     handleLocation(location);

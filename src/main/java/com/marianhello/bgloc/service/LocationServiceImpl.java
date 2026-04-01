@@ -961,6 +961,22 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
     }
 
     private void evaluateHeartbeatMovement(Location freshLocation) {
+
+        float accuracy = freshLocation.hasAccuracy() ? freshLocation.getAccuracy() : 999.0f;
+        float speed = freshLocation.hasSpeed() ? freshLocation.getSpeed() : 0.0f;
+
+        boolean isHallucination = false;
+
+        if (speed < 2.0f) {
+            if (accuracy > 50.0f) {
+                isHallucination = true;
+            }
+        } else {
+            if (accuracy > 150.0f) {
+                isHallucination = true;
+            }
+        }
+
         if (mLastKnownLocation != null) {
             float[] results = new float[1];
             Location.distanceBetween(
@@ -972,33 +988,38 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
             float radius = mConfig.getStationaryRadius();
 
             if (distance >= radius) {
-                logger.info("HEARTBEAT DETECTED MOVEMENT! Distance: {}m. Waking up continuous tracking.", distance);
 
-                
-                if (this.heartbeatManager != null) {
-                    this.heartbeatManager.stop();
-                }
+                if (isHallucination) {
+                    logger.warn("HEARTBEAT DRIFT REJECTED: Jumped {}m but accuracy is {}m (speed {}m/s). Treating as stationary.", distance, accuracy, speed);
+                } else {
+                    logger.info("HEARTBEAT DETECTED ACTUAL MOVEMENT! Distance: {}m. Waking up continuous tracking.", distance);
 
-                BatteryUtils.BatteryInfo batteryInfo = BatteryUtils.getBatteryStatus(this);
-                BackgroundLocation bgLoc = BackgroundLocation.fromLocation(freshLocation);
-                bgLoc.setProvider("heartbeat_wakeup");
-                bgLoc.setStatus(SYNC_PENDING);
-                bgLoc.setBatchStartMillis(null);
-                bgLoc.setBatteryLevel(batteryInfo.getBatteryPercentage());
-                bgLoc.setIsCharging(batteryInfo.isCharging());
-                mLastKnownLocation = bgLoc;
-
-                if (mLocationDAO != null) {
-                    try {
-                        mLocationDAO.persistLocation(bgLoc);
-                        logger.debug("Fresh location committed to SQLite.");
-                    } catch (Exception e) {
-                        logger.error("Failed to commit Fresh location to database.", e);
+                    if (this.heartbeatManager != null) {
+                        this.heartbeatManager.stop();
                     }
+
+                    BatteryUtils.BatteryInfo batteryInfo = BatteryUtils.getBatteryStatus(this);
+                    BackgroundLocation bgLoc = BackgroundLocation.fromLocation(freshLocation);
+                    bgLoc.setProvider("heartbeat_wakeup");
+                    bgLoc.setStatus(SYNC_PENDING);
+                    bgLoc.setBatchStartMillis(null);
+                    bgLoc.setBatteryLevel(batteryInfo.getBatteryPercentage());
+                    bgLoc.setIsCharging(batteryInfo.isCharging());
+                    mLastKnownLocation = bgLoc;
+
+                    if (mLocationDAO != null) {
+                        try {
+                            mLocationDAO.persistLocation(bgLoc);
+                            logger.debug("Fresh location committed to SQLite.");
+                        } catch (Exception e) {
+                            logger.error("Failed to commit Fresh location to database.", e);
+                        }
+                    }
+
+                    mProvider.onResume();
+
+                    return;
                 }
-                mProvider.onResume();
-                
-                return; 
             } else {
                 logger.debug("Heartbeat distance: {}m. Still stationary within {}m radius.", distance, radius);
             }
@@ -1006,36 +1027,43 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
 
         BackgroundLocation ping;
         BatteryUtils.BatteryInfo batteryInfo = BatteryUtils.getBatteryStatus(this);
+
         if (mLastKnownLocation != null) {
             ping = new BackgroundLocation(mLastKnownLocation);
-        } else {
+        } else if (!isHallucination) {
             ping = BackgroundLocation.fromLocation(freshLocation);
+        } else {
+            logger.warn("Initial heartbeat was a hallucination. Skipping ping.");
+            ping = null;
         }
-        ping.setTime(System.currentTimeMillis());
-        ping.setLocationId(null);
-        ping.setProvider("heartbeat_ping");
-        ping.setSpeed(0.0f);
-        ping.setStatus(SYNC_PENDING);
-        ping.setBatchStartMillis(null);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1) {
-            ping.setElapsedRealtimeNanos(SystemClock.elapsedRealtimeNanos());
-        }
-        ping.setBatteryLevel(batteryInfo.getBatteryPercentage());
-        ping.setIsCharging(batteryInfo.isCharging());
 
-        if (mLocationDAO != null) {
-            try {
-                mLocationDAO.persistLocation(ping);
-                logger.debug("Stationary ping committed to SQLite.");
-            } catch (Exception e) {
-                logger.error("Failed to commit ping to database.", e);
+        if (ping != null) {
+            ping.setTime(System.currentTimeMillis());
+            ping.setLocationId(null);
+            ping.setProvider("heartbeat_ping");
+            ping.setSpeed(0.0f);
+            ping.setStatus(SYNC_PENDING);
+            ping.setBatchStartMillis(null);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1) {
+                ping.setElapsedRealtimeNanos(SystemClock.elapsedRealtimeNanos());
             }
-        }
+            ping.setBatteryLevel(batteryInfo.getBatteryPercentage());
+            ping.setIsCharging(batteryInfo.isCharging());
 
-        Config config = getConfig();
-        if (config != null && config.hasValidSyncUrl()) {
-            logger.debug("Flushing heartbeat ping to server.");
-            scheduleNetworkSync(true);
+            if (mLocationDAO != null) {
+                try {
+                    mLocationDAO.persistLocation(ping);
+                    logger.debug("Stationary ping committed to SQLite.");
+                } catch (Exception e) {
+                    logger.error("Failed to commit ping to database.", e);
+                }
+            }
+
+            Config config = getConfig();
+            if (config != null && config.hasValidSyncUrl()) {
+                logger.debug("Flushing heartbeat ping to server.");
+                scheduleNetworkSync(true);
+            }
         }
 
         reloadHeartbeat();
