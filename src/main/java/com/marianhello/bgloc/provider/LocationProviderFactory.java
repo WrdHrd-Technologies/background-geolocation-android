@@ -13,7 +13,7 @@ import android.content.Context;
 
 import com.marianhello.bgloc.Config;
 import com.tenforwardconsulting.bgloc.DistanceFilterLocationProvider;
-import com.wrdhrd.bgloc.FusedDistanceFilterLocationProvider;
+import com.wrdhrd.bgloc.provider.FusedDistanceFilterLocationProvider;
 
 import java.lang.IllegalArgumentException;
 

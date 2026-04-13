@@ -1,12 +1,3 @@
-/*
-According to apache license
-
-This is fork of christocracy cordova-plugin-background-geolocation plugin
-https://github.com/christocracy/cordova-plugin-background-geolocation
-
-This is a new class
-*/
-
 package com.marianhello.bgloc.service;
 
 import android.content.pm.ServiceInfo;
@@ -15,11 +6,9 @@ import android.app.Notification;
 import android.app.NotificationManager;
 import android.app.Service;
 import android.content.BroadcastReceiver;
-import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.location.Location;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.os.Binder;
@@ -32,7 +21,6 @@ import android.os.Looper;
 import android.os.Message;
 import android.os.Process;
 import android.os.PowerManager;
-import android.os.SystemClock;
 
 import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
@@ -48,7 +36,6 @@ import androidx.work.WorkManager;
 import com.marianhello.bgloc.Config;
 import com.marianhello.bgloc.ConnectivityListener;
 import com.marianhello.bgloc.Setting;
-import com.marianhello.bgloc.data.BatteryUtils;
 import com.marianhello.bgloc.data.SettingDAO;
 import com.marianhello.bgloc.sync.LocationSyncWorker;
 import com.marianhello.bgloc.sync.NotificationHelper;
@@ -73,13 +60,12 @@ import com.marianhello.bgloc.provider.LocationProviderFactory;
 import com.marianhello.bgloc.provider.ProviderDelegate;
 import com.marianhello.logging.LoggerManager;
 import com.marianhello.logging.UncaughtExceptionLogger;
-import com.wrdhrd.bgloc.FusedDistanceFilterLocationProvider;
-
+import com.wrdhrd.bgloc.ActivityRecognitionReceiver;
+import com.wrdhrd.bgloc.provider.FusedDistanceFilterLocationProvider;
 
 import org.chromium.content.browser.ThreadUtils;
 import org.json.JSONException;
 
-import static com.marianhello.bgloc.data.BackgroundLocation.SYNC_PENDING;
 import static com.marianhello.bgloc.service.LocationServiceIntentBuilder.containsCommand;
 import static com.marianhello.bgloc.service.LocationServiceIntentBuilder.containsMessage;
 import static com.marianhello.bgloc.service.LocationServiceIntentBuilder.getCommand;
@@ -88,40 +74,15 @@ import static com.marianhello.bgloc.service.LocationServiceIntentBuilder.getMess
 public class LocationServiceImpl extends Service implements ProviderDelegate, LocationService {
 
     public static final String ACTION_BROADCAST = ".broadcast";
-
-    /**
-     * CommandId sent by the service to
-     * any registered clients with error.
-     */
     public static final int MSG_ON_ERROR = 100;
-
-    /**
-     * CommandId sent by the service to
-     * any registered clients with the new position.
-     */
     public static final int MSG_ON_LOCATION = 101;
-
-    /**
-     * CommandId sent by the service to
-     * any registered clients whenever the devices enters "stationary-mode"
-     */
     public static final int MSG_ON_STATIONARY = 102;
-
-    /**
-     * CommandId sent by the service to
-     * any registered clients with new detected activity.
-     */
     public static final int MSG_ON_ACTIVITY = 103;
-
     public static final int MSG_ON_SERVICE_STARTED = 104;
-
     public static final int MSG_ON_SERVICE_STOPPED = 105;
-
     public static final int MSG_ON_ABORT_REQUESTED = 106;
-
     public static final int MSG_ON_HTTP_AUTHORIZATION = 107;
 
-    /** notification id */
     private static int NOTIFICATION_ID = 1;
     private static int PERMISSION_NOTIFICATION_ID = 2;
 
@@ -146,25 +107,18 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
 
     private static LocationTransform sLocationTransform;
     private static LocationProviderFactory sLocationProviderFactory;
-    private PowerManager.WakeLock wakeLock;                 // PARTIAL_WAKELOCK
-    private BackgroundLocation mLastKnownLocation = null;
-    private HeartbeatManager heartbeatManager = null;
+    private PowerManager.WakeLock wakeLock; 
 
     private class ServiceHandler extends Handler {
         public ServiceHandler(Looper looper) {
             super(looper);
         }
-
         @Override
         public void handleMessage(Message msg) {
             super.handleMessage(msg);
         }
     }
 
-    /**
-     * When binding to the service, we return an interface to our messenger
-     * for sending messages to the service.
-     */
     @SuppressLint("WakelockTimeout")
     @Override
     public IBinder onBind(Intent intent) {
@@ -184,10 +138,8 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
 
     @Override
     public boolean onUnbind(Intent intent) {
-        // All clients have unbound with unbindService()
         logger.debug("All clients have been unbound from service");
-
-        return true; // Ensures onRebind() is called when a client re-binds.
+        return true; 
     }
 
     @Override
@@ -195,59 +147,36 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
         super.onCreate();
 
         sIsRunning = false;
-
         UncaughtExceptionLogger.register(this);
-
         logger = LoggerManager.getLogger(LocationServiceImpl.class);
 
-        this.heartbeatManager = new HeartbeatManager(this);
-
-        logger.info("Creating LocationServiceImpl");
+        logger.info("Creating LocationServiceImpl. Monolithic Architecture Active.");
 
         mServiceId = System.currentTimeMillis();
 
-        // Start up the thread running the service.  Note that we create a
-        // separate thread because the service normally runs in the process's
-        // main thread, which we don't want to block.  We also make it
-        // background priority so CPU-intensive work will not disrupt our UI.
         if (mHandlerThread == null) {
             mHandlerThread = new HandlerThread("LocationServiceImpl.Thread", Process.THREAD_PRIORITY_BACKGROUND);
         }
         mHandlerThread.start();
-        // An Android service handler is a handler running on a specific background thread.
         mServiceHandler = new ServiceHandler(mHandlerThread.getLooper());
 
         mResolver = ResourceResolver.newInstance(this);
-
-        String authority = mResolver.getAuthority();
-
         mLocationDAO = DAOFactory.createLocationDAO(this);
 
-        // PARTIAL_WAKELOCK
         PowerManager powerManager = (PowerManager) getSystemService(POWER_SERVICE);
         wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK,"com.marianhello.backgroundgeolocation:wakelock");
 
         mPostLocationTask = new PostLocationTask(mLocationDAO,
                 new PostLocationTask.PostLocationTaskListener() {
                     @Override
-                    public void onRequestedAbortUpdates() {
-                        handleRequestedAbortUpdates();
-                    }
-
+                    public void onRequestedAbortUpdates() { handleRequestedAbortUpdates(); }
                     @Override
-                    public void onHttpAuthorizationUpdates() {
-                        handleHttpAuthorizationUpdates();
-                    }
-
+                    public void onHttpAuthorizationUpdates() { handleHttpAuthorizationUpdates(); }
                     @Override
-                    public void onSyncRequested() {
-                        scheduleNetworkSync(false);
-                    }
+                    public void onSyncRequested() { scheduleNetworkSync(false); }
                 }, new ConnectivityListener() {
             @Override
-            public boolean hasConnectivity() {
-                return isNetworkAvailable();
-            }
+            public boolean hasConnectivity() { return isNetworkAvailable(); }
         });
 
         registerReceiver(connectivityChangeReceiver, new IntentFilter(ConnectivityManager.CONNECTIVITY_ACTION));
@@ -258,28 +187,20 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
     public void onDestroy() {
         logger.info("Destroying LocationServiceImpl");
 
-        // PARTIAL_WAKELOCK
         if (wakeLock != null && wakeLock.isHeld()) {
             wakeLock.release();
             logger.info("WAKELOCK released");
         }
 
-        if (this.heartbeatManager != null) {
-            this.heartbeatManager.destroy();
-            this.heartbeatManager = null; // Drop the reference
-        }
-
-        // workaround for issue #276
         if (mProvider != null) {
             mProvider.onDestroy();
         }
-
 
         if (mHandlerThread != null) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR2) {
                 mHandlerThread.quitSafely();
             } else {
-                mHandlerThread.quit(); //sorry
+                mHandlerThread.quit(); 
             }
         }
 
@@ -287,9 +208,7 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
             mPostLocationTask.shutdown();
         }
 
-
         unregisterReceiver(connectivityChangeReceiver);
-
         sIsRunning = false;
         super.onDestroy();
     }
@@ -297,7 +216,6 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
     @Override
     public void onTaskRemoved(Intent rootIntent) {
         logger.debug("Task has been removed");
-        // workaround for issue #276
         Config config = getConfig();
         Setting setting = getSetting();
         if (config.getStopOnTerminate() || !setting.isStarted()) {
@@ -313,7 +231,6 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
         if (mIsInForeground) return;
 
         try {
-            // Use cached config or fast default. DO NOT hit the DAO here.
             Config fastConfig = (mConfig != null) ? mConfig : Config.getDefault();
             
             Notification notification = new NotificationHelper.NotificationFactory(this).getNotification(
@@ -338,12 +255,21 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         if (intent == null || !containsCommand(intent)) {
-            // CRITICAL: If the OS restarts the service, it passes a null intent.
-            // You MUST promote it immediately, or it gets killed again.
             promoteToForegroundSynchronously();
             start();
             return START_STICKY;
         }
+
+        if (ActivityRecognitionReceiver.ACTION_ACTIVITY_TRANSITION.equals(intent.getAction())) {
+            logger.warn("Activity Recognition interrupt received. Forcing engine into HIGH GEAR.");
+            promoteToForegroundSynchronously();
+            
+            if (mProvider instanceof FusedDistanceFilterLocationProvider) {
+                ((FusedDistanceFilterLocationProvider) mProvider).forceHighGear();
+            }
+            return START_STICKY;
+        }
+
 
         LocationServiceIntentBuilder.Command cmd = getCommand(intent);
         int commandId = cmd.getId();
@@ -355,12 +281,10 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
                         startId)
         );
 
-        // FULFILL CONTRACT IMMEDIATELY - NO DB READS ALLOWED HERE
         if (commandId == CommandId.START_FOREGROUND_SERVICE || commandId == CommandId.START_FOREGROUND) {
             promoteToForegroundSynchronously();
         }
 
-        // Execute your heavy setup and routing afterwards
         processCommand(commandId, cmd.getArgument());
 
         if (containsMessage(intent)) {
@@ -370,82 +294,20 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
         return START_STICKY;
     }
 
-    // @Override
-    // public int onStartCommand(Intent intent, int flags, int startId) {
-    //     if (intent == null || !containsCommand(intent)) {
-    //         // when service was killed and restarted we will restart service
-    //         start();
-    //         return START_STICKY;
-    //     }
-
-    //     boolean containsCommand = containsCommand(intent);
-    //     logger.debug(
-    //             String.format("Service in [%s] state. cmdId: [%s]. startId: [%d]",
-    //                     sIsRunning ? "STARTED" : "NOT STARTED",
-    //                     containsCommand ? getCommand(intent).getId() : "N/A",
-    //                     startId)
-    //     );
-
-    //     if (containsCommand) {
-    //         LocationServiceIntentBuilder.Command cmd = getCommand(intent);
-    //         processCommand(cmd.getId(), cmd.getArgument());
-    //     }
-
-    //     if (containsMessage(intent)) {
-    //         processMessage(getMessage(intent));
-    //     }
-
-    //     return START_STICKY;
-    // }
-
-    private void processMessage(String message) {
-        // currently we do not process any message
-    }
+    private void processMessage(String message) {}
 
     private void processCommand(int command, Object arg) {
         try {
             switch (command) {
-                case CommandId.START:
-                    start();
-                    break;
-                case CommandId.START_FOREGROUND_SERVICE:
-                    startForegroundService();
-                    break;
-                case CommandId.STOP:
-                    stop();
-                    break;
-                case CommandId.CONFIGURE:
-                    configure((Config) arg);
-                    break;
-                case CommandId.STOP_FOREGROUND:
-                    stopForeground();
-                    break;
-                case CommandId.START_FOREGROUND:
-                    startForeground();
-                    break;
-                case CommandId.REGISTER_HEADLESS_TASK:
-                    registerHeadlessTask((String) arg);
-                    break;
-                case CommandId.START_HEADLESS_TASK:
-                    startHeadlessTask();
-                    break;
-                case CommandId.STOP_HEADLESS_TASK:
-                    stopHeadlessTask();
-                    break;
-                case CommandId.HEARTBEAT_PING:
-                    logger.debug("Heartbeat ping received from AlarmManager!");
-                    if (wakeLock != null && !wakeLock.isHeld()) {
-                        logger.debug("Acquiring CPU WakeLock for asynchronous GPS ping.");
-                        wakeLock.acquire(30 * 1000L); // Force CPU to stay awake for max 30 seconds
-                    }
-
-                    postHeartbeatLocation(); // The method we wrote earlier to send to server
-        
-                    // RELOAD THE GUN: Reschedule the next beat
-                    if (this.heartbeatManager != null && this.heartbeatManager.isRunning()) {
-                        this.heartbeatManager.start(); 
-                    }
-                    break;
+                case CommandId.START: start(); break;
+                case CommandId.START_FOREGROUND_SERVICE: startForegroundService(); break;
+                case CommandId.STOP: stop(); break;
+                case CommandId.CONFIGURE: configure((Config) arg); break;
+                case CommandId.STOP_FOREGROUND: stopForeground(); break;
+                case CommandId.START_FOREGROUND: startForeground(); break;
+                case CommandId.REGISTER_HEADLESS_TASK: registerHeadlessTask((String) arg); break;
+                case CommandId.START_HEADLESS_TASK: startHeadlessTask(); break;
+                case CommandId.STOP_HEADLESS_TASK: stopHeadlessTask(); break;
             }
         } catch (Exception e) {
             logger.error("processCommand: exception", e);
@@ -454,25 +316,17 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
 
     @Override
     public synchronized void start() {
-        if (sIsRunning) {
-            return;
-        }
+        if (sIsRunning) return;
 
         if (mSetting == null) {
-            logger.warn("Attempt to start unset service. Will use stored or default.");
             mSetting = getSetting();
-            // TODO: throw JSONException if config cannot be obtained from db
         }
-
         if(!mSetting.isStarted()){
             sIsRunning = false;
             return;
         }
-
         if (mConfig == null) {
-            logger.warn("Attempt to start unconfigured service. Will use stored or default.");
             mConfig = getConfig();
-            // TODO: throw JSONException if config cannot be obtained from db
         }
 
         logger.debug("Will start service with: {}", mConfig.toString());
@@ -489,7 +343,6 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
 
         sIsRunning = true;
 
-        // SHIFT HEAVY LIFTING TO THE BACKGROUND THREAD
         mServiceHandler.post(new Runnable() {
             @Override
             public void run() {
@@ -498,7 +351,6 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
                     logger.info("Location provider started successfully on background thread.");
                 } catch (Exception e) {
                     logger.error("Failed to start location provider", e);
-                   // Handle provider failure gracefully, notify UI if necessary
                 }
             }
         });
@@ -507,47 +359,16 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
         bundle.putInt("action", MSG_ON_SERVICE_STARTED);
         bundle.putLong("serviceId", mServiceId);
         broadcastMessage(bundle);
-
-        // LocationProviderFactory spf = sLocationProviderFactory != null
-        //         ? sLocationProviderFactory : new LocationProviderFactory(this);
-        // mProvider = spf.getInstance(mConfig.getLocationProvider());
-        // mProvider.setDelegate(this);
-        // mProvider.onCreate();
-        // mProvider.onConfigure(mConfig);
-
-        // sIsRunning = true;
-        // ThreadUtils.runOnUiThreadBlocking(new Runnable() {
-        //     @Override
-        //     public void run() {
-        //         mProvider.onStart();
-        //         // if (mConfig.getStartForeground()) {
-        //         //     startForeground();
-        //         // }
-        //     }
-        // });
-
-        // Bundle bundle = new Bundle();
-        // bundle.putInt("action", MSG_ON_SERVICE_STARTED);
-        // bundle.putLong("serviceId", mServiceId);
-        // broadcastMessage(bundle);
     }
 
     @Override
     public synchronized void startForegroundService() {
         start();
-        // start();
-        // startForeground();
     }
 
     @Override
     public synchronized void stop() {
-        if (!sIsRunning) {
-            return;
-        }
-
-        if (this.heartbeatManager != null) {
-            this.heartbeatManager.stop();
-        }
+        if (!sIsRunning) return;
 
         if (mProvider != null) {
             mProvider.onStop();
@@ -572,21 +393,18 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
                     config.getNotificationIconColor());
 
             if (mProvider != null) {
-                mProvider.onCommand(LocationProvider.CMD_SWITCH_MODE,
-                        LocationProvider.FOREGROUND_MODE);
+                mProvider.onCommand(LocationProvider.CMD_SWITCH_MODE, LocationProvider.FOREGROUND_MODE);
             }
             try {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                     super.startForeground(NOTIFICATION_ID, notification,ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION);
-                }
-                else {
+                } else {
                     super.startForeground(NOTIFICATION_ID, notification);
                 }
                 mIsInForeground = true;
             } catch(Exception error) {
-                logger.error("Forground Error: {}", error.getMessage());
+                logger.error("Foreground Error: {}", error.getMessage());
             }
-
         }
     }
 
@@ -595,8 +413,7 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
         if (sIsRunning && mIsInForeground) {
             stopForeground(true);
             if (mProvider != null) {
-                mProvider.onCommand(LocationProvider.CMD_SWITCH_MODE,
-                        LocationProvider.BACKGROUND_MODE);
+                mProvider.onCommand(LocationProvider.CMD_SWITCH_MODE, LocationProvider.BACKGROUND_MODE);
             }
             mIsInForeground = false;
         }
@@ -620,33 +437,25 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
         mPostLocationTask.setConfig(mConfig);
 
         if (mSetting == null) {
-            logger.warn("Attempt to start unset service. Will use stored or default.");
             mSetting = getSetting();
-            // TODO: throw JSONException if config cannot be obtained from db
         }
 
         if(!mSetting.isStarted()){
             sIsRunning = false;
         }
 
-        if (this.heartbeatManager != null) {
-            this.heartbeatManager.setInterval(config.getHeartbeatInterval());
-        }
-
         ThreadUtils.runOnUiThread(new Runnable() {
             @Override
             public void run() {
                 if (sIsRunning) {
-                    if (currentConfig.getStartForeground() == true && mConfig.getStartForeground() == false) {
+                    if (currentConfig.getStartForeground() && !mConfig.getStartForeground()) {
                         stopForeground(true);
                     }
 
-                    if (mConfig.getStartForeground() == true) {
-                        if (currentConfig.getStartForeground() == false) {
-                            // was not running in foreground, so start in foreground
+                    if (mConfig.getStartForeground()) {
+                        if (!currentConfig.getStartForeground()) {
                             startForeground();
                         } else {
-                            // was running in foreground, so just update existing notification
                             Notification notification = new NotificationHelper.NotificationFactory(LocationServiceImpl.this).getNotification(
                                     mConfig.getNotificationTitle(),
                                     mConfig.getNotificationText(),
@@ -681,7 +490,6 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
 
     @Override
     public synchronized void registerHeadlessTask(String taskRunnerClass) {
-        logger.debug("Registering headless task");
         mHeadlessTaskRunnerClass = taskRunnerClass;
     }
 
@@ -705,9 +513,7 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
 
     @Override
     public synchronized void executeProviderCommand(final int command, final int arg1) {
-        if (mProvider == null) {
-            return;
-        }
+        if (mProvider == null) return;
 
         mServiceHandler.post(new Runnable() {
             @Override
@@ -715,13 +521,6 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
                 mProvider.onCommand(command, arg1);
             }
         });
-
-        // ThreadUtils.runOnUiThread(new Runnable() {
-        //     @Override
-        //     public void run() {
-        //         mProvider.onCommand(command, arg1);
-        //     }
-        // });
     }
 
     @Override
@@ -729,7 +528,6 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
         logger.debug("New location {}", location.toString());
 
         location = transformLocation(location);
-        mLastKnownLocation = location;
         
         if (location == null) {
             logger.debug("Skipping location as requested by the locationTransform");
@@ -743,30 +541,18 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
 
         runHeadlessTask(new LocationTask(location) {
             @Override
-            public void onError(String errorMessage) {
-                logger.error("Location task error: {}", errorMessage);
-            }
-
+            public void onError(String errorMessage) { logger.error("Location task error: {}", errorMessage); }
             @Override
-            public void onResult(String value) {
-                logger.debug("Location task result: {}", value);
-            }
+            public void onResult(String value) { logger.debug("Location task result: {}", value); }
         });
-
-        if (this.heartbeatManager != null) {
-            this.heartbeatManager.stop();
-        }
 
         postLocation(location);
     }
 
     @Override
     public void onStationary(BackgroundLocation location) {
-        logger.debug("New stationary {}", location.toString());
-
+        logger.debug("New stationary heartbeat ping received natively: {}", location.toString());
         location = transformLocation(location);
-
-        mLastKnownLocation = location; 
         
         if (location == null) {
             logger.debug("Skipping location as requested by the locationTransform");
@@ -780,29 +566,15 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
 
         runHeadlessTask(new StationaryTask(location){
             @Override
-            public void onError(String errorMessage) {
-                logger.error("Stationary task error: {}", errorMessage);
-            }
-
+            public void onError(String errorMessage) { logger.error("Stationary task error: {}", errorMessage); }
             @Override
-            public void onResult(String value) {
-                logger.debug("Stationary task result: {}", value);
-            }
+            public void onResult(String value) { logger.debug("Stationary task result: {}", value); }
         });
 
         postLocation(location);
-
-        Config config = getConfig();
         
-        if (config.getLocationProvider() != Config.DISTANCE_FILTER_PROVIDER) {
-            if (this.heartbeatManager != null) {
-                logger.info("Engaging Heartbeat for modern provider.");
-                this.heartbeatManager.setInterval(config.getHeartbeatInterval());
-                this.heartbeatManager.start();
-            }
-        } else {
-            logger.info("Legacy DistanceFilter active. Skipping HeartbeatManager.");
-        }
+        logger.debug("Flushing Proof of Life stationary ping directly to server.");
+        scheduleNetworkSync(true);
     }
 
     @Override
@@ -816,14 +588,9 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
 
         runHeadlessTask(new ActivityTask(activity){
             @Override
-            public void onError(String errorMessage) {
-                logger.error("Activity task error: {}", errorMessage);
-            }
-
+            public void onError(String errorMessage) { logger.error("Activity task error: {}", errorMessage); }
             @Override
-            public void onResult(String value) {
-                logger.debug("Activity task result: {}", value);
-            }
+            public void onResult(String value) { logger.debug("Activity task result: {}", value); }
         });
     }
 
@@ -833,7 +600,6 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
 
     @Override
     public void onError(PluginException error) {
-        Config config = getConfig();
         Bundle bundle = new Bundle();
         bundle.putInt("action", MSG_ON_ERROR);
         bundle.putBundle("payload", error.toBundle());
@@ -847,7 +613,6 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
             NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
             notificationManager.notify(PERMISSION_NOTIFICATION_ID, builder.build());
         }
-
     }
 
     private void broadcastMessage(int msgId) {
@@ -869,16 +634,13 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
         } else {
            return super.registerReceiver(receiver, filter, null, mServiceHandler);
         }
-        
     }
 
     @Override
     public void unregisterReceiver(BroadcastReceiver receiver) {
         try {
             super.unregisterReceiver(receiver);
-        } catch (IllegalArgumentException ex) {
-            // if was not registered ignore exception
-        }
+        } catch (IllegalArgumentException ex) { }
     }
 
     public Config getConfig() {
@@ -891,11 +653,7 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
                 logger.error("Config exception: {}", e.getMessage());
             }
         }
-
-        if (config == null) {
-            config = Config.getDefault();
-        }
-
+        if (config == null) { config = Config.getDefault(); }
         mConfig = config;
         return mConfig;
     }
@@ -910,11 +668,7 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
                 logger.error("Setting exception: {}", e.getMessage());
             }
         }
-
-        if (setting == null) {
-            setting = Setting.getDefault();
-        }
-
+        if (setting == null) { setting = Setting.getDefault(); }
         mSetting = setting;
         return mSetting;
     }
@@ -924,18 +678,11 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
     }
 
     private void runHeadlessTask(Task task) {
-        if (mHeadlessTaskRunner == null) {
-            return;
-        }
-
+        if (mHeadlessTaskRunner == null) return;
         logger.debug("Running headless task: {}", task);
         mHeadlessTaskRunner.runTask(task);
     }
 
-    /**
-     * Class used for the client Binder.  Since this service runs in the same process as its
-     * clients, we don't need to deal with IPC.
-     */
     public class LocalBinder extends Binder {
         public LocationServiceImpl getService() {
             return LocationServiceImpl.this;
@@ -946,161 +693,11 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
         if (sLocationTransform != null) {
             return sLocationTransform.transformLocationBeforeCommit(this, location);
         }
-
         return location;
     }
 
     private void postLocation(BackgroundLocation location) {
         mPostLocationTask.add(location);
-    }
-
-    private void reloadHeartbeat() {
-        if (this.heartbeatManager != null && this.heartbeatManager.isRunning()) {
-            this.heartbeatManager.start(); 
-        }
-    }
-
-    private void evaluateHeartbeatMovement(Location freshLocation) {
-
-        float accuracy = freshLocation.hasAccuracy() ? freshLocation.getAccuracy() : 999.0f;
-        float speed = freshLocation.hasSpeed() ? freshLocation.getSpeed() : 0.0f;
-
-        boolean isHallucination = false;
-
-        if (speed < 2.0f) {
-            if (accuracy > 50.0f) {
-                isHallucination = true;
-            }
-        } else {
-            if (accuracy > 150.0f) {
-                isHallucination = true;
-            }
-        }
-
-        if (mLastKnownLocation != null) {
-            float[] results = new float[1];
-            Location.distanceBetween(
-                    freshLocation.getLatitude(), freshLocation.getLongitude(),
-                    mLastKnownLocation.getLatitude(), mLastKnownLocation.getLongitude(),
-                    results
-            );
-            float distance = results[0];
-            float radius = mConfig.getStationaryRadius();
-
-            if (distance >= radius) {
-
-                if (isHallucination) {
-                    logger.warn("HEARTBEAT DRIFT REJECTED: Jumped {}m but accuracy is {}m (speed {}m/s). Treating as stationary.", distance, accuracy, speed);
-                } else {
-                    logger.info("HEARTBEAT DETECTED ACTUAL MOVEMENT! Distance: {}m. Waking up continuous tracking.", distance);
-
-                    if (this.heartbeatManager != null) {
-                        this.heartbeatManager.stop();
-                    }
-
-                    BatteryUtils.BatteryInfo batteryInfo = BatteryUtils.getBatteryStatus(this);
-                    BackgroundLocation bgLoc = BackgroundLocation.fromLocation(freshLocation);
-                    bgLoc.setProvider("heartbeat_wakeup");
-                    bgLoc.setStatus(SYNC_PENDING);
-                    bgLoc.setBatchStartMillis(null);
-                    bgLoc.setBatteryLevel(batteryInfo.getBatteryPercentage());
-                    bgLoc.setIsCharging(batteryInfo.isCharging());
-                    mLastKnownLocation = bgLoc;
-
-                    if (mLocationDAO != null) {
-                        try {
-                            mLocationDAO.persistLocation(bgLoc);
-                            logger.debug("Fresh location committed to SQLite.");
-                        } catch (Exception e) {
-                            logger.error("Failed to commit Fresh location to database.", e);
-                        }
-                    }
-
-                    mProvider.onResume();
-
-                    return;
-                }
-            } else {
-                logger.debug("Heartbeat distance: {}m. Still stationary within {}m radius.", distance, radius);
-            }
-        }
-
-        BackgroundLocation ping;
-        BatteryUtils.BatteryInfo batteryInfo = BatteryUtils.getBatteryStatus(this);
-
-        if (mLastKnownLocation != null) {
-            ping = new BackgroundLocation(mLastKnownLocation);
-        } else if (!isHallucination) {
-            ping = BackgroundLocation.fromLocation(freshLocation);
-        } else {
-            logger.warn("Initial heartbeat was a hallucination. Skipping ping.");
-            ping = null;
-        }
-
-        if (ping != null) {
-            ping.setTime(System.currentTimeMillis());
-            ping.setLocationId(null);
-            ping.setProvider("heartbeat_ping");
-            ping.setSpeed(0.0f);
-            ping.setStatus(SYNC_PENDING);
-            ping.setBatchStartMillis(null);
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1) {
-                ping.setElapsedRealtimeNanos(SystemClock.elapsedRealtimeNanos());
-            }
-            ping.setBatteryLevel(batteryInfo.getBatteryPercentage());
-            ping.setIsCharging(batteryInfo.isCharging());
-
-            if (mLocationDAO != null) {
-                try {
-                    mLocationDAO.persistLocation(ping);
-                    logger.debug("Stationary ping committed to SQLite.");
-                } catch (Exception e) {
-                    logger.error("Failed to commit ping to database.", e);
-                }
-            }
-
-            Config config = getConfig();
-            if (config != null && config.hasValidSyncUrl()) {
-                logger.debug("Flushing heartbeat ping to server.");
-                scheduleNetworkSync(true);
-            }
-        }
-
-        reloadHeartbeat();
-
-        if (wakeLock != null && wakeLock.isHeld()) {
-            logger.debug("Heartbeat pipeline complete. Releasing CPU WakeLock.");
-            wakeLock.release();
-        }
-    }
-
-    private void postHeartbeatLocation() {
-        if (!(mProvider instanceof FusedDistanceFilterLocationProvider)) {
-            logger.warn("Active provider is not FusedDistanceFilterLocationProvider. Cannot execute one-shot ping.");
-            return;
-        }
-
-        logger.debug("Requesting fresh GPS coordinate from hardware...");
-
-        ((FusedDistanceFilterLocationProvider) mProvider).requestSingleFreshLocation(
-            freshLocation -> {
-                if (freshLocation != null) {
-                    evaluateHeartbeatMovement(freshLocation);
-                } else {
-                    logger.warn("One-shot GPS returned null. Radio might be blocked underground.");
-                    reloadHeartbeat();
-                }
-            },
-            e -> {
-                logger.error("One-shot GPS request crashed.", e);
-                reloadHeartbeat();
-
-                if (wakeLock != null && wakeLock.isHeld()) {
-                    logger.debug("Heartbeat pipeline complete. Releasing CPU WakeLock.");
-                    wakeLock.release();
-                }
-            }
-        );
     }
 
     public void handleRequestedAbortUpdates() {
@@ -1111,9 +708,6 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
         broadcastMessage(MSG_ON_HTTP_AUTHORIZATION);
     }
 
-    /**
-     * Broadcast receiver which detects connectivity change condition
-     */
     private BroadcastReceiver connectivityChangeReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
@@ -1124,32 +718,19 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
     };
 
     private boolean isNetworkAvailable() {
-        ConnectivityManager cm =
-                (ConnectivityManager) this.getSystemService(Context.CONNECTIVITY_SERVICE);
+        ConnectivityManager cm = (ConnectivityManager) this.getSystemService(Context.CONNECTIVITY_SERVICE);
         NetworkInfo activeNetwork = cm.getActiveNetworkInfo();
         return activeNetwork != null && activeNetwork.isConnectedOrConnecting();
     }
 
-    public long getServiceId() {
-        return mServiceId;
-    }
-
+    public long getServiceId() { return mServiceId; }
     public boolean isBound() {
         LocationServiceInfo info = new LocationServiceInfoImpl(this);
         return info.isBound();
     }
-
-    public static boolean isRunning() {
-        return sIsRunning;
-    }
-
-    public static void setLocationTransform(@Nullable LocationTransform transform) {
-        sLocationTransform = transform;
-    }
-
-    public static @Nullable LocationTransform getLocationTransform() {
-        return sLocationTransform;
-    }
+    public static boolean isRunning() { return sIsRunning; }
+    public static void setLocationTransform(@Nullable LocationTransform transform) { sLocationTransform = transform; }
+    public static @Nullable LocationTransform getLocationTransform() { return sLocationTransform; }
 
     private void scheduleNetworkSync(boolean forceImmediate) {
         logger.debug("Scheduling WorkManager to sync locations to the server.");

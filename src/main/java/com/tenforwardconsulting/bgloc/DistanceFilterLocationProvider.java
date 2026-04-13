@@ -452,13 +452,6 @@ public class DistanceFilterLocationProvider extends AbstractLocationProvider imp
             onExitStationaryRegion(location);
         } else {
             long timeDiff = 0;
-            
-            if(lastLocation != null){
-                logger.debug("Last Location Time: {}", lastLocation.getTime());
-            }
-            else{
-                logger.debug("Last Location is null ");
-            }
 
             if ( heartBeatInterval > 0) {
                 if(lastLocationTime == 0 && stationaryLocation != null){
@@ -471,9 +464,25 @@ public class DistanceFilterLocationProvider extends AbstractLocationProvider imp
                 
                 logger.debug("Stationary change Time Change: {}", timeDiff);
                 if(heartBeatInterval < timeDiff){
-                    lastLocation = location;
-                    lastLocationTime = System.currentTimeMillis();
-                    handleLocation(location);
+                    Location clonedLocation;
+                    if(lastLocation != null){
+                        clonedLocation = new Location(lastLocation);
+                        clonedLocation.setTime(System.currentTimeMillis());
+                        clonedLocation.setProvider("heartbeat_ping");
+                    }
+                    else if(stationaryLocation != null){
+                        clonedLocation = new Location(stationaryLocation);
+                        clonedLocation.setTime(System.currentTimeMillis());
+                        clonedLocation.setProvider("heartbeat_ping");
+                    } else {
+                        clonedLocation = new Location(location);
+                        clonedLocation.setTime(System.currentTimeMillis());
+                        clonedLocation.setProvider("heartbeat_ping");
+                    }
+
+                    lastLocation = clonedLocation;
+                    lastLocationTime = clonedLocation.getTime();
+                    handleStationary(clonedLocation);
                 }
             }
             

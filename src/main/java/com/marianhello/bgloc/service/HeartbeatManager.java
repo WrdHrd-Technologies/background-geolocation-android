@@ -67,7 +67,7 @@ class HeartbeatManager {
 
         int flags = PendingIntent.FLAG_UPDATE_CURRENT;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            flags |= PendingIntent.FLAG_IMMUTABLE; // Required for Android 12+
+            flags |= PendingIntent.FLAG_IMMUTABLE; 
         }
 
         mHeartbeatIntent = PendingIntent.getBroadcast(mContext, 0, intent, flags);
@@ -76,7 +76,6 @@ class HeartbeatManager {
 
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                // Pierces Doze Mode but allows the OS to batch network requests
                 mAlarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMillis, mHeartbeatIntent);
             } else {
                 mAlarmManager.set(AlarmManager.RTC_WAKEUP, triggerAtMillis, mHeartbeatIntent);
