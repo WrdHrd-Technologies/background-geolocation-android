@@ -199,6 +199,9 @@ public class DistanceFilterLocationProvider extends AbstractLocationProvider imp
                     isAcquiringSpeed = true;
                 }
             } else {
+                if (lastLocation != null) {
+                    stationaryLocation = new Location(lastLocation);
+                }
                 isAcquiringStationaryLocation = true;
             }
 
@@ -465,19 +468,12 @@ public class DistanceFilterLocationProvider extends AbstractLocationProvider imp
                 logger.debug("Stationary change Time Change: {}", timeDiff);
                 if(heartBeatInterval < timeDiff){
                     Location clonedLocation;
-                    if(lastLocation != null){
-                        clonedLocation = new Location(lastLocation);
-                        clonedLocation.setTime(System.currentTimeMillis());
-                        clonedLocation.setProvider("heartbeat_ping");
-                    }
-                    else if(stationaryLocation != null){
+                    if(stationaryLocation != null){
                         clonedLocation = new Location(stationaryLocation);
                         clonedLocation.setTime(System.currentTimeMillis());
                         clonedLocation.setProvider("heartbeat_ping");
                     } else {
                         clonedLocation = new Location(location);
-                        clonedLocation.setTime(System.currentTimeMillis());
-                        clonedLocation.setProvider("heartbeat_ping");
                     }
 
                     lastLocation = clonedLocation;
