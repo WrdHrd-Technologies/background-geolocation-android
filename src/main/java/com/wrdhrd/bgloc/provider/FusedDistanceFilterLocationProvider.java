@@ -135,6 +135,8 @@ public class FusedDistanceFilterLocationProvider extends AbstractLocationProvide
                         }
                         logger.info("Hardware Displacement Shield broken! Waking up engine.");
                         setPace(true);
+
+                        continue;
                     }
 
                     if (isHallucination) {
