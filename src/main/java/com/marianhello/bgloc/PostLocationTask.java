@@ -206,37 +206,16 @@ public class PostLocationTask {
         return true;
     }
 
-    private void postError(PluginException error) {
-        logger.debug("Executing Error#error");
+    private void postError(PluginException error,String targetUrl) {
         try {
             JSONObject jsonError = new JSONObject(error.toJsonString());
-            String url = mConfig.getUrl() + "/error";
-            logger.debug("Posting json to url: {} headers: {}", url, error.toJsonString());
-            int responseCode;
-
-            try {
-                responseCode = HttpPostService.postJSON(url, jsonError, mConfig.getHttpHeaders());
-            } catch (Exception e) {
-                mHasConnectivity = mConnectivityListener.hasConnectivity();
-                logger.warn("Error while posting Errors: {}", e.toString());
-                return;
+            String finalUrl = targetUrl.endsWith("/error") ? targetUrl : targetUrl + "/error";
+            int responseCode = HttpPostService.postJSON(finalUrl, jsonError, mConfig.getHttpHeaders());
+            if (responseCode >= 200 && responseCode < 300) {
+                logger.debug("Critical Error successfully dispatched to server.");
             }
-
-            if (responseCode == 285) {
-                // Okay, but we don't need to continue sending these
-
-                logger.debug("Error was sent to the server, and received an \"HTTP 285 Updates Not Required\"");
-            }
-
-            // All 2xx statuses are okay
-            boolean isStatusOkay = responseCode >= 200 && responseCode < 300;
-
-            if (!isStatusOkay) {
-                logger.warn("Server error while posting Errors responseCode: {}", responseCode);
-            }
-        }
-        catch(JSONException j) {
-            logger.error("Error JSON conversion: {}", j.getMessage());
+        } catch (Exception e) {
+            logger.warn("Offline: Could not dispatch critical error: {}", e.getMessage());
         }
     }
 
@@ -245,7 +224,10 @@ public class PostLocationTask {
             logger.warn("PostErrorTask has no config. Did you called setConfig? Skipping Error.");
             return;
         }
-        if (mHasConnectivity && mConfig.hasValidUrl()) {
+
+        final String errorUrl = mConfig.hasValidUrl() ? mConfig.getUrl() : mConfig.getSyncUrl();
+
+        if (mHasConnectivity && errorUrl != null && !errorUrl.isEmpty()) {
             try {
                 mExecutor.execute(new Runnable() {
                     @Override

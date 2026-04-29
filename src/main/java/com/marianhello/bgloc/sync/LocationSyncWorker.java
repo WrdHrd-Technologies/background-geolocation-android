@@ -33,6 +33,7 @@ public class LocationSyncWorker extends Worker implements HttpPostService.Upload
     private BatchManager batchManager;
     private NotificationManager notificationManager;
     private boolean notificationsEnabled = true;
+    private int lastReportedProgress = -1;
 
     public LocationSyncWorker(@NonNull Context context, @NonNull WorkerParameters workerParams) {
         super(context, workerParams);
@@ -59,11 +60,13 @@ public class LocationSyncWorker extends Worker implements HttpPostService.Upload
             return Result.failure();
         }
 
-        notificationsEnabled = !config.hasNotificationsEnabled() || config.getNotificationsEnabled();
+        
 
         Long batchStartMillis = System.currentTimeMillis();
 
         boolean isForced = getInputData().getBoolean("force_sync", false);
+
+        notificationsEnabled = isForced && (!config.hasNotificationsEnabled() || config.getNotificationsEnabled());
         
         // WorkManager retries automatically. If runAttemptCount > 0, it's a retry.
         int syncThreshold = (isForced || getRunAttemptCount() > 0) ? 0 : config.getSyncThreshold();
@@ -162,13 +165,19 @@ public class LocationSyncWorker extends Worker implements HttpPostService.Upload
 
     @Override
     public void onProgress(int progress) {
-        if (notificationsEnabled) {
+        if (!notificationsEnabled) return;
+
+        if (progress == 100 || progress >= lastReportedProgress + 10) {
+            lastReportedProgress = progress;
+            
             NotificationCompat.Builder builder = new NotificationCompat.Builder(getApplicationContext(), NotificationHelper.SYNC_CHANNEL_ID)
                     .setOngoing(true)
                     .setContentTitle("Syncing locations")
                     .setContentText("Sync in progress")
                     .setSmallIcon(android.R.drawable.ic_dialog_info)
+                    .setOnlyAlertOnce(true) 
                     .setProgress(100, progress, false);
+            
             notificationManager.notify(NOTIFICATION_ID, builder.build());
         }
     }

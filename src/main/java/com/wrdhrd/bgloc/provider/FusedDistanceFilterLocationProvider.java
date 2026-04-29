@@ -48,6 +48,7 @@ public class FusedDistanceFilterLocationProvider extends AbstractLocationProvide
 
     private long mActiveInterval = -1;
     private long mActiveFastestInterval = -1;
+    private long engineWakeTime = 0;
 
     private static final float SPEED_STILL_MAX = 0.5f;
     private static final float SPEED_WALKING_MAX = 5.0f;
@@ -102,11 +103,20 @@ public class FusedDistanceFilterLocationProvider extends AbstractLocationProvide
 
                     float accuracy = location.hasAccuracy() ? location.getAccuracy() : 999.0f;
                     boolean isHallucination = false;
+                    boolean isWarmingUp = (System.currentTimeMillis() - engineWakeTime) < 60000;
 
-                    if (speed < 2.0f) {
-                        if (accuracy > 50.0f) isHallucination = true;
+                    if (isWarmingUp) {
+                        if (accuracy > 150.0f) {
+                            isHallucination = true;
+                        }
                     } else {
-                        if (accuracy > 150.0f) isHallucination = true;
+                        if (accuracy > 60.0f) {
+                            isHallucination = true;
+                        } else if (speed < 2.0f && accuracy > 25.0f) {
+                            isHallucination = true;
+                        } else if (speed >= 5.0f && accuracy > 35.0f) {
+                            isHallucination = true;
+                        }
                     }
 
                     if (!isMoving) {
@@ -330,6 +340,9 @@ public class FusedDistanceFilterLocationProvider extends AbstractLocationProvide
     @SuppressLint("MissingPermission")
     private void setPace(boolean moving) {
         if (!isStarted) return;
+
+        boolean wakingFromSleep = (!isMoving && moving);
+
         isMoving = moving;
         stationaryCount = 0;
 
@@ -337,6 +350,10 @@ public class FusedDistanceFilterLocationProvider extends AbstractLocationProvide
             mFusedLocationClient.removeLocationUpdates(mLocationCallback);
 
             if (isMoving) {
+                if (wakingFromSleep) {
+                    engineWakeTime = System.currentTimeMillis(); 
+                }
+
                 logger.info("Engaging Kinetic Tracking.");
 
                 if (ActivityCompat.checkSelfPermission(mContext, Manifest.permission.ACTIVITY_RECOGNITION) == PackageManager.PERMISSION_GRANTED || Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
@@ -445,16 +462,19 @@ public class FusedDistanceFilterLocationProvider extends AbstractLocationProvide
     }
 
     private int calculateDynamicDistanceFilter(float speed) {
-        int baseFilter = mConfig.getDistanceFilter();
-
+        int baseFilter = mConfig.getDistanceFilter(); // Currently 10m
         float speedKmH = speed * 3.6f;
+        
         if (speedKmH > 20) {
             return baseFilter * 2;
         }
-
-        if (speed <= 1.0f) return baseFilter;
-        int dynamicFilter = Math.round(speed * 10.0f);
-        int lowerBound = Math.max(dynamicFilter, baseFilter);
-        return Math.min(lowerBound, 300);
+        
+        if (speedKmH > 5.0f) {
+            int dynamicFilter = Math.round(speed * 10.0f);
+            int lowerBound = Math.max(dynamicFilter, baseFilter);
+            return Math.min(lowerBound, 300);
+        }
+        
+        return Math.max(baseFilter, 30); 
     }
 }

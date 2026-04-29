@@ -122,10 +122,13 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
     @SuppressLint("WakelockTimeout")
     @Override
     public IBinder onBind(Intent intent) {
-        if (wakeLock != null && !wakeLock.isHeld()) {
-            wakeLock.acquire();
-            logger.debug("WAKELOCK acquired");
+        if (isLegacyEngineActive()) {
+            if (wakeLock != null && !wakeLock.isHeld()) {
+                wakeLock.acquire();
+                logger.debug("WAKELOCK acquired");
+            }
         }
+
         logger.debug("Client binds to service");
         return mBinder;
     }
@@ -138,6 +141,11 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
 
     @Override
     public boolean onUnbind(Intent intent) {
+        if (wakeLock != null && wakeLock.isHeld()) {
+            wakeLock.release();
+            logger.debug("WAKELOCK released on UI unbind.");
+        }
+        
         logger.debug("All clients have been unbound from service");
         return true; 
     }
@@ -753,5 +761,11 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
                 ExistingWorkPolicy.APPEND_OR_REPLACE,
                 syncRequest
         );
+    }
+
+    private boolean isLegacyEngineActive() {
+        if (mProvider == null) return true; 
+        
+        return !(mProvider instanceof FusedDistanceFilterLocationProvider);
     }
 }
