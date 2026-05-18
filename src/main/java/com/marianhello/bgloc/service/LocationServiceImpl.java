@@ -262,15 +262,16 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
+        promoteToForegroundSynchronously();
+
         if (intent == null || !containsCommand(intent)) {
-            promoteToForegroundSynchronously();
             start();
             return START_STICKY;
         }
+        
 
         if (ActivityRecognitionReceiver.ACTION_ACTIVITY_TRANSITION.equals(intent.getAction())) {
             logger.warn("Activity Recognition interrupt received. Forcing engine into HIGH GEAR.");
-            promoteToForegroundSynchronously();
             
             if (mProvider instanceof FusedDistanceFilterLocationProvider) {
                 ((FusedDistanceFilterLocationProvider) mProvider).forceHighGear();
@@ -279,19 +280,14 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
         }
 
 
-        LocationServiceIntentBuilder.Command cmd = getCommand(intent);
+       LocationServiceIntentBuilder.Command cmd = getCommand(intent);
         int commandId = cmd.getId();
-
         logger.debug(
                 String.format("Service in [%s] state. cmdId: [%d]. startId: [%d]",
                         sIsRunning ? "STARTED" : "NOT STARTED",
                         commandId,
                         startId)
         );
-
-        if (commandId == CommandId.START_FOREGROUND_SERVICE || commandId == CommandId.START_FOREGROUND) {
-            promoteToForegroundSynchronously();
-        }
 
         processCommand(commandId, cmd.getArgument());
 
@@ -326,47 +322,91 @@ public class LocationServiceImpl extends Service implements ProviderDelegate, Lo
     public synchronized void start() {
         if (sIsRunning) return;
 
-        if (mSetting == null) {
-            mSetting = getSetting();
-        }
-        if(!mSetting.isStarted()){
-            sIsRunning = false;
-            return;
-        }
-        if (mConfig == null) {
-            mConfig = getConfig();
-        }
-
-        logger.debug("Will start service with: {}", mConfig.toString());
-
-        mPostLocationTask.setConfig(mConfig);
-        mPostLocationTask.clearQueue();
-
-        LocationProviderFactory spf = sLocationProviderFactory != null
-            ? sLocationProviderFactory : new LocationProviderFactory(this);
-        mProvider = spf.getInstance(mConfig.getLocationProvider());
-        mProvider.setDelegate(this);
-        mProvider.onCreate();
-        mProvider.onConfigure(mConfig);
-
-        sIsRunning = true;
-
-        mServiceHandler.post(new Runnable() {
+        new Thread(new Runnable() {
             @Override
             public void run() {
-                try {
-                    mProvider.onStart();
-                    logger.info("Location provider started successfully on background thread.");
-                } catch (Exception e) {
-                    logger.error("Failed to start location provider", e);
+                if (mSetting == null) mSetting = getSetting(); // SQLite Read
+                if (!mSetting.isStarted()) {
+                    sIsRunning = false;
+                    return;
                 }
-            }
-        });
+                if (mConfig == null) mConfig = getConfig(); // SQLite Read
 
-        Bundle bundle = new Bundle();
-        bundle.putInt("action", MSG_ON_SERVICE_STARTED);
-        bundle.putLong("serviceId", mServiceId);
-        broadcastMessage(bundle);
+                logger.debug("Will start service with: {}", mConfig.toString());
+
+                mPostLocationTask.setConfig(mConfig);
+                mPostLocationTask.clearQueue();
+
+                LocationProviderFactory spf = sLocationProviderFactory != null
+                    ? sLocationProviderFactory : new LocationProviderFactory(LocationServiceImpl.this);
+                mProvider = spf.getInstance(mConfig.getLocationProvider());
+                mProvider.setDelegate(LocationServiceImpl.this);
+                mProvider.onCreate();
+                mProvider.onConfigure(mConfig);
+
+                sIsRunning = true;
+
+                mServiceHandler.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        try {
+                            mProvider.onStart();
+                            logger.info("Location provider started successfully.");
+                        } catch (Exception e) {
+                            logger.error("Failed to start location provider", e);
+                        }
+                    }
+                });
+
+                Bundle bundle = new Bundle();
+                bundle.putInt("action", MSG_ON_SERVICE_STARTED);
+                bundle.putLong("serviceId", mServiceId);
+                broadcastMessage(bundle);
+            }
+        }).start();
+
+
+        // if (mSetting == null) {
+        //     mSetting = getSetting();
+        // }
+        // if(!mSetting.isStarted()){
+        //     sIsRunning = false;
+        //     return;
+        // }
+        // if (mConfig == null) {
+        //     mConfig = getConfig();
+        // }
+
+        // logger.debug("Will start service with: {}", mConfig.toString());
+
+        // mPostLocationTask.setConfig(mConfig);
+        // mPostLocationTask.clearQueue();
+
+        // LocationProviderFactory spf = sLocationProviderFactory != null
+        //     ? sLocationProviderFactory : new LocationProviderFactory(this);
+        // mProvider = spf.getInstance(mConfig.getLocationProvider());
+        // mProvider.setDelegate(this);
+        // mProvider.onCreate();
+        // mProvider.onConfigure(mConfig);
+
+        // sIsRunning = true;
+
+        // mServiceHandler.post(new Runnable() {
+        //     @Override
+        //     public void run() {
+        //         try {
+        //             mProvider.onStart();
+        //             logger.info("Location provider started successfully on background thread.");
+        //         } catch (Exception e) {
+        //             logger.error("Failed to start location provider", e);
+        //         }
+        //     }
+        // });
+
+        // Bundle bundle = new Bundle();
+        // bundle.putInt("action", MSG_ON_SERVICE_STARTED);
+        // bundle.putLong("serviceId", mServiceId);
+        // broadcastMessage(bundle);
     }
 
     @Override

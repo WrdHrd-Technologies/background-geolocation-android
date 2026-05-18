@@ -1,75 +1,51 @@
 apply plugin: 'com.android.library'
 
-apply from: './VERSIONS.gradle'
-def accountPrefix = getAccountPrefix()
-def resourcePrefix = getResourcePrefix()
-
-// https://hackernoon.com/android-how-to-add-gradle-dependencies-using-foreach-c4cbcc070458
-def projDependencies = [
-    [configuration: "androidTestImplementation", dependency: androidLibs.supportAnnotations],
-    [configuration: "androidTestImplementation", dependency: testLibs.testRunner],
-    [configuration: "androidTestImplementation", dependency: testLibs.testRules],
-    [configuration: "testImplementation", dependency: testLibs.testRunner],
-    [configuration: "testImplementation", dependency: testLibs.testRules],
-    [configuration: "testImplementation", dependency: testLibs.junit],
-    [configuration: "testImplementation", dependency: testLibs.json],
-    [configuration: "testImplementation", dependency: testLibs.robolectric],
-    [configuration: "testImplementation", dependency: testLibs.mockitoCore],
-    [configuration: "implementation", dependency: androidLibs.playServicesLocation],
-    [configuration: "implementation", dependency: androidLibs.supportCompat],
-    [configuration: "implementation", dependency: androidLibs.appcompat],
-    [configuration: "implementation", dependency: androidLibs.localbroadcastmanager],
-    [configuration: "implementation", dependency: libs.permissions,
-        options: { exclude group: 'com.android.support', module: 'appcompat-v7'}],
-    [configuration: "implementation", dependency: libs.logback],
-    [configuration: "implementation", dependency: libs.slf4j],
-    [configuration: "implementation", dependency: libs.promise],
-]
+def safeExtGet(prop, fallback) {
+    rootProject.ext.has(prop) ? rootProject.ext.get(prop) : fallback
+}
 
 buildscript {
     repositories {
-        maven {
-            url 'https://maven.google.com/'
-            name 'Google'
-        }
-        jcenter()
+        google()
+        mavenCentral() 
     }
     dependencies {
-        classpath 'com.android.tools.build:gradle:3.4.1'
-
-        // NOTE: Do not place your application dependencies here; they belong
-        // in the individual module build.gradle files
+        classpath 'com.android.tools.build:gradle:7.4.2' 
     }
 }
 
-allprojects {
-    repositories {
-        maven {
-            url 'https://maven.google.com'
-        }
-        maven { url 'https://jitpack.io' }
-        jcenter()
-    }
+// CRITICAL FIX: This makes JitPack and MavenCentral visible to your dependencies below
+repositories {
+    google()
+    mavenCentral()
+    maven { url 'https://jitpack.io' }
 }
 
 android {
-    compileSdkVersion project.ext.getCompileSdkVersion()
-    buildToolsVersion project.ext.getBuildToolsVersion()
+    compileSdkVersion safeExtGet('compileSdkVersion', 34)
+    buildToolsVersion safeExtGet('buildToolsVersion', '34.0.0')
 
-    // Tip: https://stackoverflow.com/questions/39987669/renamingdelegatingcontext-is-deprecated-how-do-we-test-sqlite-db-now/52170737#52170737
-    // Gradle automatically adds 'android.test.runner' as a dependency.
     useLibrary 'android.test.runner'
     useLibrary 'android.test.base'
     useLibrary 'android.test.mock'
 
     defaultConfig {
-        resValue "string", resourcePrefix + "account_name", 'Locations'
-        resValue "string", resourcePrefix + "account_type", accountPrefix + '.account'
-        resValue "string", resourcePrefix + "content_authority", accountPrefix + '.provider'
-        testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
-        minSdkVersion project.ext.getMinSdkVersion()
+        resValue "string", "account_name", 'Locations'
+        resValue "string", "account_type", 'com.marianhello.account'
+        resValue "string", "content_authority", 'com.marianhello.provider'
+        
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        
+        minSdkVersion safeExtGet('minSdkVersion', 24)
+        targetSdkVersion safeExtGet('targetSdkVersion', 34) 
+        
         versionCode 1
         versionName "1.0"
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_11
+        targetCompatibility JavaVersion.VERSION_11
     }
 
     buildTypes {
@@ -79,23 +55,30 @@ android {
         }
     }
 
-    testOptions {
-        //unitTests.includeAndroidResources = true
-        unitTests.returnDefaultValues = true
-    }
-
     lintOptions {
         abortOnError false
     }
 }
 
 dependencies {
-    projDependencies.each {
-        add(it.configuration, it.dependency)
-    }
+    implementation 'com.facebook.react:react-native:+'
 
     implementation fileTree(include: ['*.jar'], dir: 'libs')
     implementation "com.github.suman379:RealTime:master-SNAPSHOT"
-    implementation 'com.google.android.gms:play-services-location:19.0.1'
+    
+    implementation "com.google.android.gms:play-services-location:${safeExtGet('playServicesLocationVersion', '21.2.0')}"
+    
     implementation 'androidx.work:work-runtime:2.11.1'
+    
+    implementation 'androidx.core:core:1.12.0'
+    implementation 'androidx.appcompat:appcompat:1.6.1'
+    implementation 'androidx.localbroadcastmanager:localbroadcastmanager:1.1.0'
+
+    implementation 'com.github.tony19:logback-android:2.0.0'
+    implementation 'org.slf4j:slf4j-api:1.7.36'
+    
+    implementation 'com.github.jparkie:promise:1.0.3'
+    implementation('io.github.nishkarsh:android-permissions:0.1.7') {
+        exclude group: 'com.android.support', module: 'appcompat-v7'
+    }
 }

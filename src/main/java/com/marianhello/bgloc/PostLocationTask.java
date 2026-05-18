@@ -232,7 +232,7 @@ public class PostLocationTask {
                 mExecutor.execute(new Runnable() {
                     @Override
                     public void run() {
-                        postError(error);
+                        postError(error,errorUrl);
                     }
                 });
             } catch (RejectedExecutionException ex) {

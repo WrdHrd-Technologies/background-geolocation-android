@@ -1,5 +1,6 @@
 package com.marianhello.logging;
 
+import android.content.Context;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteException;
@@ -20,7 +21,7 @@ import ch.qos.logback.classic.db.names.DBNameResolver;
 import ch.qos.logback.classic.db.names.DefaultDBNameResolver;
 import ch.qos.logback.classic.db.names.TableName;
 import ch.qos.logback.core.CoreConstants;
-import ch.qos.logback.core.android.CommonPathUtil;
+//import ch.qos.logback.core.android.CommonPathUtil;
 
 public class DBLogReader {
 
@@ -28,6 +29,7 @@ public class DBLogReader {
 
     private DefaultDBNameResolver mDbNameResolver;
     private SQLiteDatabase mDatabase;
+    private Context mContext;
 
     public static class QueryBuilder {
         DBNameResolver mDbNameResolver;
@@ -97,6 +99,10 @@ public class DBLogReader {
         }
     }
 
+    public DBLogReader(Context context) {
+        this.mContext = context;
+    }
+
     public Collection<LogEntry> getEntries(int limit, int fromLogEntryId, Level minLevel) {
         try {
             return getDbEntries(limit, fromLogEntryId, minLevel);
@@ -124,7 +130,8 @@ public class DBLogReader {
         }
 
         try {
-            File dbfile = new File(CommonPathUtil.getDatabaseDirectoryPath(packageName), DB_FILENAME);
+            //File dbfile = new File(CommonPathUtil.getDatabaseDirectoryPath(packageName), DB_FILENAME);
+            File dbfile = mContext.getDatabasePath(DB_FILENAME);
             mDatabase = SQLiteDatabase.openDatabase(dbfile.getPath(), null, SQLiteDatabase.OPEN_READONLY);
         } catch (SQLiteException e) {
             throw new SQLException("Cannot open database", e);
